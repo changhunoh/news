@@ -3,6 +3,9 @@ import re
 import numpy as np
 import threading
 from typing import List, Dict, Any, Optional, TypedDict
+import sys
+__import__('pysqlite3')
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 import chromadb
 from chromadb import PersistentClient
 import vertexai
