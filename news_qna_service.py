@@ -25,7 +25,7 @@ class NewsQnAService:
         qdrant_key: str | None = None,
         collection: str = "stock_news",
         embed_model_name: str = "gemini-embedding-001",
-        gen_model_name: str = "gemini-2.5-pro",
+        gen_model_name: str = "gemini-2.5-flash-lite",
         embed_dim: int = 3072,
         top_k: int = 5,
         rerank_top_k: int = 10,
@@ -126,17 +126,17 @@ class NewsQnAService:
             return "관련된 정보를 찾을 수 없습니다."
         ctx = "\n\n".join(d["content"] for d in docs)
         prompt = f"""
-당신은 주식시장과 연금에 정통한 애널리스트입니다.
-아래 컨텍스트만 근거로 한국어로 간결하게 답하세요.
-모호하면 "관련된 정보를 찾을 수 없습니다."라고 답하세요.
-중요 포인트는 **굵게** 표시하세요.
-
-[컨텍스트]
-{ctx}
-
-[질문]
-{question}
-"""
+        당신은 주식시장과 연금에 정통한 애널리스트입니다.
+        아래 컨텍스트만 근거로 한국어로 간결하게 답하세요.
+        모호하면 "관련된 정보를 찾을 수 없습니다."라고 답하세요.
+        중요 포인트는 **굵게** 표시하세요.
+        
+        [컨텍스트]
+        {ctx}
+        
+        [질문]
+        {question}
+        """
         try:
             resp = self.gen_model.generate_content(prompt, generation_config={"temperature": 0.2, "max_output_tokens": 1200})
             return (resp.text or "").strip()
