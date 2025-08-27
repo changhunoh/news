@@ -16,7 +16,9 @@ def _escape_html(s: Optional[str]) -> str:
 
 def _linkify(s: str) -> str:
     return re.sub(r"(https?://[\w\-\./%#\?=&:+,~]+)", r'<a href="\1" target="_blank">\1</a>', s or "")
-
+st.sidebar.write("COLLECTION_NAME =", os.getenv("COLLECTION_NAME"))
+st.sidebar.write("EMBED_MODEL_NAME =", os.getenv("EMBED_MODEL_NAME"))
+st.sidebar.write("EMBED_DIM =", os.getenv("EMBED_DIM"))
 # (선택) 백엔드
 try:
     from news_qna_service import NewsQnAService
