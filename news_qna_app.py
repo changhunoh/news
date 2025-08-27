@@ -1,4 +1,3 @@
-# app.py
 import os, io, re
 from typing import List, Dict, Any
 from datetime import datetime
@@ -105,12 +104,12 @@ if "_preset" not in st.session_state:
 # Light Theme (강제 적용)
 # ----------------------------
 THEME = {
-    "bg": "#f6f8fb",
+    "bg": "#e0f7fa",  # 연하늘
     "text": "#1f2a44",
     "muted": "#5b6785",
-    "user_bg": "#0b62e6",
+    "user_bg": "#003087",  # 찐파랑
     "user_fg": "#ffffff",
-    "bot_bg": "#ffffff",
+    "bot_bg": "#ffffff",  # 하얀색
     "bot_fg": "#1f2a44",
     "bubble_border": "#e6ebf4",
     "chip_bg": "#eef4ff",
@@ -240,7 +239,7 @@ def _linkify(s: str) -> str:
 
 def _render_message(text: str, sender: str, ts: str):
     row = "user-row" if sender == "user" else "bot-row"
-    bub = "user-bubble" if sender == "user" else "bot-bubble"
+    bub = "user-bubble" if sender == "user" else "chat-bubble"
     safe = _linkify(_escape_html(text or ""))
     _md(f'<div class="chat-row {row}"><div class="chat-bubble {bub}">{safe}</div></div>')
     _md(f'<div class="timestamp {"ts-right" if sender=="user" else "ts-left"}">{ts}</div>')
