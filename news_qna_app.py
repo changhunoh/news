@@ -26,108 +26,130 @@ TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
 st.markdown('<meta name="color-scheme" content="light">', unsafe_allow_html=True)
 st.markdown("""
 <style>
-:root { color-scheme: light !important; }
-
-/* ===== App 배경(바깥) ===== */
-html, body,
-[data-testid="stAppViewContainer"], section.main, .stMain, [data-testid="stSidebar"]{
-  background: radial-gradient(1200px 700px at 50% -200px, #f0f4ff 0%, #f6f8fb 45%, #eef1f6 100%) !important;
-  color:#1f2a44 !important;
+:root{
+  color-scheme: light !important;
+  --brand:#0b62e6;
+  --bezel:#0b0e17;
+  --screen:#ffffff;
+  --line:#e6ebf4;
+  --chip:#eef4ff;
+  --text:#1f2a44;
 }
 
-/* ====== Phone Frame: block-container를 '폰'처럼 ====== */
+/* 바깥 배경 */
+html,body,[data-testid="stAppViewContainer"],section.main,.stMain,[data-testid="stSidebar"]{
+  background: radial-gradient(1200px 700px at 50% -220px,#f0f4ff 0%,#f6f8fb 45%,#eef1f6 100%) !important;
+  color: var(--text) !important;
+}
+
+/* ===== Phone Frame ===== */
 .block-container{
-  /* 크기/정렬 */
-  max-width: 420px;  /* 390~430 사이 권장 */
-  margin: 24px auto 48px !important;
-  padding: 18px 12px 20px !important;
-
-  /* 프레임(베젤) */
-  border-radius: 36px !important;               /* 둥근 모서리(폰 느낌) */
-  box-shadow:
-    0 24px 60px rgba(15,18,32,0.30),
-    0 10px 24px rgba(15,18,32,0.18) !important;
-  border: 1px solid rgba(255,255,255,0.06) !important;
+  max-width: 420px;
+  margin: 28px auto 56px !important;
+  padding: 22px 14px 22px !important;
+  background: var(--bezel) !important;
+  border-radius: 42px !important;
+  box-shadow: 0 26px 64px rgba(11,14,23,.35), 0 12px 28px rgba(11,14,23,.22) !important;
+  border: 1px solid rgba(255,255,255,.06) !important;
   position: relative;
-}
-
-/* 내부 '스크린' 영역(진짜 컨텐츠) */
-.block-container > :first-child{
-  background:#ffffff !important;
-  border-radius: 28px !important;
-  padding: 10px 12px 14px !important;
-  border: 1px solid #e6ebf4 !important;
-  min-height: 720px; /* 필요시 조절 */
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.7);
 }
 
 /* 노치 */
 .block-container::before{
   content:"";
-  position:absolute;
-  top: 10px;
-  left:50%;
-  transform: translateX(-50%);
-  width: 120px; height: 20px;
-  background:#0f1220; border-radius: 12px;
-  box-shadow:
-    0 2px 4px rgba(0,0,0,0.25),
-    inset 0 0 0 1px rgba(255,255,255,0.06);
-  z-index:5;
+  position:absolute; top:12px; left:50%; transform:translateX(-50%);
+  width:120px; height:20px; background:var(--bezel); border-radius:12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.06);
+  z-index: 6;
 }
 
-/* 상단 상태바(시각적 여백) */
+/* 사이드 버튼(왼쪽/오른쪽) */
 .block-container::after{
-  content:"";
-  position:absolute;
-  top: 34px; left: 24px; right: 24px;
-  height: 6px; border-radius: 999px;
-  background: linear-gradient(90deg, #e9edf7, #f4f7ff);
-  opacity:.6;
+  content:""; position:absolute; right:-10px; top:220px;
+  width:54px; height:54px; background:#dee6f3; border-radius:999px; border:2px solid #111;
+  box-shadow: 0 8px 18px rgba(15,18,32,.18);
+}
+.block-container > ._sidebtnL{
+  content:""; position:absolute; left:-10px; top:160px;
+  width:54px; height:54px; background:#dee6f3; border-radius:999px; border:2px solid #111;
+  box-shadow: 0 8px 18px rgba(15,18,32,.18);
 }
 
-/* 프레임 안쪽 전체 라이트 스킨 */
-a { color:#0b62e6 !important; }
-hr{ border:0; border-top:1px solid #e6ebf4 !important; }
+/* 스크린(내용 래퍼) */
+.block-container > :first-child{
+  background: var(--screen) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 30px !important;
+  padding: 12px 14px 14px !important;
+  min-height: 740px;
+  position: relative;                /* 입력창 absolute 기준 */
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.65);
+  overflow: hidden;
+}
 
-/* 버튼/칩/익스팬더 라이트 스킨 */
-button, .stButton>button, .stDownloadButton>button {
-  background:#eef4ff !important; border:1px solid #dce7ff !important;
-  color:#1757ff !important; border-radius:999px !important; font-weight:700 !important;
+/* 링크/구분선 */
+a{ color:var(--brand) !important; }
+hr{ border:0; border-top:1px solid var(--line) !important; }
+
+/* 버튼/칩/익스팬더 */
+button, .stButton>button, .stDownloadButton>button{
+  background: var(--chip) !important; border:1px solid #dce7ff !important;
+  color: var(--brand) !important; border-radius:999px !important; font-weight:700 !important;
   padding:8px 14px !important; min-height:auto !important; line-height:1.1 !important;
 }
 .st-expander, .st-expander div[role="button"]{
-  background:#ffffff !important; border:1px solid #e6ebf4 !important; color:#1f2a44 !important;
-}
-
-/* 입력창 */
-.stChatInputContainer textarea, textarea, input, .stTextInput>div>div>input {
-  background:#ffffff !important; color:#1f2a44 !important; border:1px solid #e6ebf4 !important;
-  border-radius:12px !important; padding:12px !important; font-size:15px !important;
+  background:#fff !important; border:1px solid var(--line) !important; color:var(--text) !important;
 }
 
 /* 헤더 */
 .chat-header{ display:flex; align-items:center; justify-content:space-between; margin: 8px 6px 12px; }
-.chat-title{ font-size:18px; font-weight:900; color:#1f2a44; letter-spacing:.2px; }
+.chat-title{ font-size:20px; font-weight:900; color:var(--text); letter-spacing:.2px; }
 .reset-btn>button{
   width:38px; height:38px; border-radius:999px !important;
-  background:#eef4ff !important; color:#1757ff !important; border:1px solid #dce7ff !important;
-  box-shadow:0 4px 12px rgba(23,87,255,0.08);
+  background:var(--chip) !important; color:var(--brand) !important; border:1px solid #dce7ff !important;
+  box-shadow:0 4px 12px rgba(23,87,255,.08);
 }
 
-/* 채팅 버블 */
-.chat-row{ display:flex; margin:10px 0; }
+/* 채팅 버블 공통 */
+.chat-row{ display:flex; margin:12px 0; align-items:flex-end; }
 .user-row{ justify-content:flex-end; }
 .bot-row{ justify-content:flex-start; }
 .chat-bubble{
-  max-width:82%; padding:12px 14px; border-radius:18px; line-height:1.6; font-size:15px;
-  background:#ffffff; color:#1f2a44; border:1px solid #e6ebf4; border-bottom-left-radius:6px;
-  box-shadow:0 8px 20px rgba(15,23,42,0.08);
+  max-width:86%;
+  padding:14px 16px;
+  border-radius:18px;
+  line-height:1.65;
+  font-size:16px;
+  background:#ffffff;
+  color:var(--text);
+  border:1px solid var(--line);
+  border-bottom-left-radius:8px;
+  box-shadow:0 10px 22px rgba(15,23,42,.08);
   white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word;
 }
+
+/* 아바타(어시스턴트) */
+.bot-row .chat-bubble{
+  position: relative; margin-left: 54px;
+}
+.bot-row .chat-bubble::before{
+  content:"🧙‍♂️";
+  position:absolute; left:-54px; bottom:0;
+  width:42px; height:42px; border-radius:999px;
+  background:#fff; border:1px solid var(--line);
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px;
+  box-shadow:0 6px 14px rgba(15,23,42,.08);
+}
+
+/* 유저 버블(큰 파란 말풍선) */
 .user-bubble{
-  background:#0b62e6 !important; color:#ffffff !important; border:0 !important;
-  border-bottom-right-radius:6px; box-shadow:0 6px 18px rgba(11,98,230,0.18);
+  background: var(--brand) !important; color:#fff !important; border:0 !important;
+  border-bottom-right-radius:8px; border-top-left-radius:18px;
+  box-shadow:0 10px 28px rgba(11,98,230,.26);
+  font-weight:700;
+  letter-spacing:.2px;
+  padding:16px 18px;
 }
 
 /* 타임스탬프 / 액션바 / 출처 칩 */
@@ -136,25 +158,62 @@ button, .stButton>button, .stDownloadButton>button {
 .action-bar{ display:flex; gap:8px; margin:6px 6px 0; }
 .action-btn{
   font-size:12px; padding:6px 10px; border-radius:10px;
-  border:1px solid #dce7ff; background:#eef4ff; color:#1757ff;
+  border:1px solid #dce7ff; background:#eef4ff; color:var(--brand);
 }
 .source-chip{
   display:inline-block; padding:4px 10px; border-radius:999px;
-  background:#eef4ff; color:#1757ff; font-weight:800; font-size:12px;
+  background:#eef4ff; color:var(--brand); font-weight:800; font-size:12px;
   border:1px solid #dce7ff; margin:6px 6px 0 0;
 }
-.source-chip a{ color:#1757ff; text-decoration:none; }
+.source-chip a{ color:var(--brand); text-decoration:none; }
 .source-chip a:hover{ text-decoration:underline; }
 
-/* 반응형(작은 기기에서 살짝 넓게) */
+/* ===== 입력창을 '스크린' 안으로 띄우기 ===== */
+.stChatInputContainer{
+  position: absolute !important;
+  left: 50% !important; bottom: 16px !important;
+  transform: translateX(-50%);
+  width: 92% !important; max-width: 370px !important;
+  margin: 0 !important; z-index: 20;
+  filter: drop-shadow(0 10px 20px rgba(15,23,42,.25));
+}
+.stChatInputContainer > div{  /* 전체 캡슐 */
+  background:#fff !important; border:0 !important; border-radius:999px !important;
+  padding:8px 8px !important;
+  box-shadow: 0 8px 24px rgba(15,23,42,.14), 0 2px 8px rgba(15,23,42,.10) !important;
+}
+.stChatInputContainer textarea{
+  background: transparent !important; color: var(--text) !important;
+  border:0 !important; outline:0 !important;
+  border-radius:999px !important; padding: 12px 14px !important;
+  min-height: 44px !important; max-height: 100px !important;
+  font-size:15px !important;
+}
+.stChatInputContainer div[data-baseweb="button"] button,
+.stChatInputContainer button{
+  width:40px; height:40px; border-radius:999px !important;
+  background: #e6efff !important; border:0 !important; color: var(--brand) !important;
+  box-shadow: inset 0 0 0 1px #d8e6ff;
+}
+
+/* 입력창 공간 확보(겹침 방지) */
+.block-container > :first-child{ padding-bottom: 96px !important; }
+
+/* 프리셋 칩 간격/폰 느낌 */
+.stButton > button{ font-weight:800 !important; }
+.stButton{ margin: 2px 4px; }
+
+/* 반응형 */
 @media (max-width:480px){
   .block-container{ max-width: 94vw; }
 }
+[data-testid="stHeader"]{ background:transparent !important; border:0 !important; }
 
-/* Streamlit 기본 여백/헤더 정리 */
-[data-testid="stHeader"] { background: transparent !important; }
+/* 보조 엘리먼트: 왼쪽 사이드 버튼 렌더 트릭 */
 </style>
+<div class="_sidebtnL"></div>
 """, unsafe_allow_html=True)
+
 
 # =========================
 # Backend service
