@@ -56,24 +56,20 @@ hr{ border:0; border-top:1px solid #e6ebf4 !important; }
   border-radius:12px !important; padding:12px !important; font-size:15px !important;
 }
 
-/* 헤더 - 수정: overflow 방지 및 wrapping 지원 */
+/* 헤더 - 단순화: 기본 렌더링 보장 */
 .chat-header{ 
   display:flex; 
   align-items:center; 
   justify-content:space-between; 
   margin: 4px 2px 12px; 
-  flex-wrap: wrap;  /* 내용이 넘칠 때 줄바꿈 허용 */
-  gap: 10px;  /* 컬럼 간 간격 추가로 안정성 향상 */
 }
 .chat-title{ 
   font-size:20px; 
   font-weight:900; 
   color:#1f2a44; 
-  word-break: break-word;  /* 긴 단어 깨짐 처리 */
-  overflow: visible;  /* overflow 숨김 방지 */
-  white-space: normal;  /* 줄바꿈 허용 */
-  flex-shrink: 1;  /* 컬럼 너비 초과 시 축소 */
-  flex-grow: 1;  /* 가능한 공간 채우기 */
+  white-space: nowrap;  /* 줄바꿈 방지, 필요 시 제거 */
+  overflow: hidden;  /* 넘침 방지 */
+  text-overflow: ellipsis;  /* 넘침 시 ... 표시 */
 }
 .reset-btn>button{
   width:38px; height:38px; border-radius:999px !important;
@@ -114,7 +110,6 @@ hr{ border:0; border-top:1px solid #e6ebf4 !important; }
 .src-row{ margin:4px 6px 0; }
 </style>
 """, unsafe_allow_html=True)
-
 # =========================
 # Backend service
 # =========================
@@ -330,7 +325,7 @@ def generate_with_context(question: str,
 # =========================
 # Header (제목 + 우측 회전 초기화)
 # =========================
-c1, c2 = st.columns([2.0, 0.2])
+c1, c2 = st.columns([1.5, 0.16])
 with c1: _md('<div class="chat-header"><div class="chat-title">🧙‍♂️ 우리 연금술사</div></div>')
 with c2:
     if st.button("🔄", help="대화 초기화", use_container_width=True):
