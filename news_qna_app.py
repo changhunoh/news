@@ -63,7 +63,7 @@ svc = get_service()
 if "messages" not in st.session_state:
     st.session_state["messages"] = [{
         "role": "assistant",
-        "content": "대화를 새로 시작합니다. 무엇이 궁금하신가요?",
+        "content": "안녕하세요. 여러분들의 연금을 풍요롭게 만드는 연금술사입니다. 무엇이 궁금하신가요?",
         "ts": fmt_ts(datetime.now(TZ))
     }]
 
