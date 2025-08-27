@@ -50,6 +50,14 @@ html,body,[data-testid="stAppViewContainer"],section.main,.stMain,[data-testid="
   overflow: hidden;
 }
 
+/* 프레임(흰 영역) 기준 박스 + 입력창 자리 확보 */
+.block-container > :first-child{
+  position: relative !important;
+  padding-bottom: 110px !important;   /* 입력창 높이만큼 여백 */
+  overflow: hidden;
+}
+
+
 /* 링크/구분선 */
 a{ color:var(--brand) !important; }
 hr{ border:0; border-top:1px solid var(--line) !important; }
@@ -116,23 +124,21 @@ button, .stButton>button, .stDownloadButton>button{
 .stChatInputContainer{ display:none !important; }
 
 /* ===== 스크롤 영역 + 프레임 안 하단 고정 입력바 ===== */
-.screen-body{
-  display:flex; flex-direction:column;
-  max-height: calc(100vh - 200px);  /* 필요시 190~240px로 미세조정 */
-  overflow:auto;
-  padding: 8px 10px 96px;           /* 입력바 공간 */
-}
+/* 프레임 '하단' 절대 고정 입력바 */
 .chat-dock{
-  position: sticky; bottom: 12px; z-index: 5;
-  margin-top: auto; width: 100%;
-  display:flex; justify-content:center;
-  filter: drop-shadow(0 10px 18px rgba(15,23,42,.15));
+  position: absolute !important;
+  left: 50% !important;
+  bottom: 16px !important;
+  transform: translateX(-50%);
+  width: 92%; max-width: 370px;
+  z-index: 20;
+  filter: drop-shadow(0 10px 20px rgba(15,23,42,.18));
 }
 .chat-dock .dock-wrap{
-  width: 92%; max-width: 370px;
   display:flex; gap:8px; align-items:center;
   background:#ffffff; border-radius:999px; padding:8px;
-  border:1px solid #e6ebf4; box-shadow: 0 8px 20px rgba(15,23,42,.10);
+  border:1px solid #e6ebf4;
+  box-shadow: 0 8px 24px rgba(15,23,42,.10);
 }
 .chat-dock .stTextInput>div>div{ background:transparent !important; border:0 !important; padding:0 !important; }
 .chat-dock input{ height:44px !important; padding:0 12px !important; font-size:15px !important; }
