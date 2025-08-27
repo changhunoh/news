@@ -168,7 +168,7 @@ def render_messages(msgs, placeholder):
 # ------------------------
 st.title("🧙‍♂️ 우리 연금술사")
 messages_ph = st.empty()
-
+"""
 # ------------------------
 # 생성 중 처리
 # ------------------------
@@ -194,25 +194,64 @@ if st.session_state.get("generating"):
     st.session_state["pending_idx"]=None
     st.session_state["pending_question"]=""
     st.rerun()
-
+"""
 # ------------------------
 # 입력 폼
 # ------------------------
+# ---- 폼 (제출 먼저 처리 → 같은 런에서 두 번 렌더) ----
 with st.form("chat_form", clear_on_submit=True):
     user_q = st.text_input("질문을 입력하세요", "")
     submitted = st.form_submit_button("전송")
 
 if submitted and user_q.strip():
+    now = fmt_ts(datetime.now(TZ))
+
+    # 1) 유저 말풍선 추가
     st.session_state["messages"].append({
-        "role":"user","content":user_q.strip(),"ts":fmt_ts(datetime.now(TZ))
+        "role": "user",
+        "content": user_q.strip(),
+        "ts": now
     })
+
+    # 2) assistant pending 말풍선 추가
     st.session_state["messages"].append({
-        "role":"assistant","content":"","ts":fmt_ts(datetime.now(TZ)),"pending":True
+        "role": "assistant",
+        "content": "",
+        "ts": now,
+        "pending": True
     })
-    st.session_state["pending_idx"]=len(st.session_state["messages"])-1
-    st.session_state["pending_question"]=user_q.strip()
-    st.session_state["generating"]=True
-    st.rerun()
+    pending_idx = len(st.session_state["messages"]) - 1
+
+    # 3) 첫 렌더(펜딩 보여주기)
+    render_messages(st.session_state["messages"], messages_ph)
+
+    # 4) 생성 실행 (동기)
+    sources, ans, result = [], "관련 정보를 찾을 수 없습니다.", {}
+    try:
+        if svc:
+            result = svc.answer(user_q.strip()) or {}
+            ans = (
+                result.get("answer") or result.get("output_text") or
+                result.get("output")  or result.get("content") or ""
+            ).strip() or ans
+            sources = (
+                result.get("source_documents") or
+                result.get("sources") or
+                result.get("docs") or []
+            )
+        else:
+            ans = f"데모 응답: '{user_q.strip()}'에 대한 분석 결과는 준비 중입니다."
+    except Exception as e:
+        ans = f"오류 발생: {e}"
+
+    # 5) pending 교체 → 두 번째 렌더
+    st.session_state["messages"][pending_idx] = {
+        "role": "assistant",
+        "content": ans,
+        "sources": sources,
+        "ts": fmt_ts(datetime.now(TZ))
+    }
+    render_messages(st.session_state["messages"], messages_ph)
 
 # ------------------------
 # 마지막 안전 렌더
