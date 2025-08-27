@@ -99,4 +99,3 @@ with st.form("chat_form", clear_on_submit=True):
     submitted = st.form_submit_button("전송")
     if submitted and user_q.strip():
         run_answer(user_q)
-        st.rerun()
