@@ -22,48 +22,6 @@ def _linkify(s: str) -> str:
     # 정규식 역슬래시 과도 이스케이프 수정
     return re.sub(r"(https?://[\w\-\./%#\?=&:+,~]+)", r'<a href="\1" target="_blank">\1</a>', s or "")
 
-def _render_message(text: str, sender: str, ts: str):
-    row = "user-row" if sender=="user" else "bot-row"
-    bub = "user-bubble" if sender=="user" else "bot-bubble"
-    safe = _linkify(_escape_html(text or ""))
-    _md(f'<div class="chat-row {row}"><div class="chat-bubble {bub}">{safe}</div></div>')
-    _md(f'<div class="timestamp {"ts-right" if sender=="user" else "ts-left"}">{ts}</div>')
-
-def _render_sources_inline(sources: List[Dict[str,Any]]):
-    if not sources: return
-    chips = []
-    for i, d in enumerate(sources, 1):
-        m = d.get("metadata", {}) or {}
-        title = m.get("title") or m.get("path") or m.get("source") or f"문서 {i}"
-        url = m.get("url")
-        try:
-            score = float(d.get("score", 0.0) or 0.0)
-        except Exception:
-            score = 0.0
-        label = f"#{i} {title} · {score:.3f}"
-        chip_html = f'<span class="source-chip"><a href="{url}" target="_blank">{label}</a></span>' if url else f'<span class="source-chip">{label}</span>'
-        chips.append(chip_html)
-    _md(f'<div class="src-row">{"".join(chips)}</div>')
-
-def _copy_button(text: str, key: str):
-    from streamlit.components.v1 import html as st_html
-    safe = (text or "").replace("\\","\\\\").replace("`","\\`")
-    st_html(f"""
-<div class="action-bar">
-  <button class="action-btn" id="copy-{key}" data-text="{safe}">📋 복사</button>
-  <span class="small" id="copied-{key}" style="display:none;">복사됨!</span>
-</div>
-<script>
-(function(){{
-  const b=document.getElementById("copy-{key}"), t=document.getElementById("copied-{key}");
-  if(!b) return;
-  b.onclick=async()=>{{
-    try{{ await navigator.clipboard.writeText(b.getAttribute("data-text")); t.style.display="inline-block"; setTimeout(()=>t.style.display="none",1200); }}
-    catch(e){{ const ta=document.createElement('textarea'); ta.value=b.getAttribute("data-text"); document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); t.style.display="inline-block"; setTimeout(()=>t.style.display="none",1200); }}
-  }};
-}})();
-</script>
-""", height=30)
 
 # =========================
 # 페이지 설정
@@ -352,16 +310,54 @@ for i, label in enumerate(["우리금융지주 전망?", "호텔신라 실적 �
             st.session_state._preset = label
 st.divider()
 
-# ====== 스크롤 구조 래퍼 시작 ======
-st.markdown('<div class="screen-shell"><div class="screen-body">', unsafe_allow_html=True)
+def _render_messages_block(messages: List[Dict[str, Any]]):
+    def chip_html(sources: List[Dict[str,Any]]):
+        if not sources: 
+            return ""
+        chips = []
+        for i, d in enumerate(sources, 1):
+            m = (d.get("metadata") or {}) if isinstance(d, dict) else {}
+            title = m.get("title") or m.get("path") or m.get("source") or f"문서 {i}"
+            url = m.get("url")
+            try: score = float(d.get("score", 0.0) or 0.0)
+            except: score = 0.0
+            label = f"#{i} {title} · {score:.3f}"
+            chips.append(
+                f'<span class="source-chip">'
+                + (f'<a href="{url}" target="_blank">{label}</a>' if url else label)
+                + '</span>'
+            )
+        return f'<div class="src-row">{"".join(chips)}</div>'
 
-# 메시지 렌더링
-for i, m in enumerate(st.session_state.messages):
-    _render_message(m["content"], m["role"], m.get("ts",""))
-    if m["role"] == "assistant":
-        _copy_button(m["content"], key=f"msg-{i}")
-        if m.get("sources"):
-            _render_sources_inline(m["sources"])
+    parts = []
+    for i, m in enumerate(messages):
+        role = m.get("role","assistant")
+        row = "user-row" if role=="user" else "bot-row"
+        bub = "user-bubble" if role=="user" else "bot-bubble"
+        text = _linkify(_escape_html(m.get("content","")))
+        ts = _escape_html(m.get("ts",""))
+        # 말풍선 + 타임스탬프 + 복사 버튼(이벤트 위임)
+        parts.append(
+            f'<div class="chat-row {row}"><div class="chat-bubble {bub}">{text}</div></div>'
+            f'<div class="timestamp {"ts-right" if role=="user" else "ts-left"}">{ts}</div>'
+            f'<div class="action-bar"><button class="action-btn copy-btn" data-text="{text}">📋 복사</button></div>'
+            + (chip_html(m.get("sources") or []) if role=="assistant" else "")
+        )
+    html = (
+        '<div class="screen-shell">'
+        '<div class="screen-body">'
+        + "".join(parts) +
+        '</div></div>'
+        # 복사 버튼 이벤트 위임(단 한 번만 붙이기)
+        '<script>(function(){'
+        '  document.addEventListener("click", async function(ev){'
+        '    const b = ev.target.closest(".copy-btn"); if(!b) return;'
+        '    const tmp = document.createElement("textarea"); tmp.value = b.getAttribute("data-text").replace(/<[^>]+>/g,"");'
+        '    document.body.appendChild(tmp); tmp.select(); try{document.execCommand("copy");}catch(e){}; document.body.removeChild(tmp);'
+        '  }, true);'
+        '})();</script>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 # 입력 Dock
 st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
@@ -380,28 +376,25 @@ st.markdown('</div></div>', unsafe_allow_html=True)
 def run_answer(question: str):
     if not question: return
     now = format_timestamp(datetime.now(TZ))
-    st.session_state.messages.append({"role": "user", "content": question, "sources": [], "ts": now})
-    _render_message(question, "user", now)
+    st.session_state.messages.append({"role":"user","content":question,"sources":[],"ts":now})
 
     with st.spinner("검색/생성 중…"):
+        main = {}
         if svc is None:
             st.warning("백엔드 서비스가 초기화되지 않았습니다. news_qna_service 모듈/환경변수를 확인해 주세요.")
-            main = {}
         else:
             try:
                 main = svc.answer(question) or {}
             except Exception as e:
                 st.error(f"svc.answer 오류: {e}")
-                main = {}
-
         main_sources = main.get("source_documents", []) or []
         answer = generate_with_context(question, main_sources)
 
     now2 = format_timestamp(datetime.now(TZ))
-    st.session_state.messages.append({"role": "assistant", "content": answer, "sources": main_sources, "ts": now2})
-    _render_message(answer, "assistant", now2)
-    _copy_button(answer, key=f"ans-{len(st.session_state.messages)}")
-    _render_sources_inline(main_sources)
+    st.session_state.messages.append({"role":"assistant","content":answer,"sources":main_sources,"ts":now2})
+
+    # 👉 메시지 전체를 다시 한 번에 렌더
+    _render_messages_block(st.session_state.messages)
 
 # 제출 처리
 if 'submitted' in locals() and submitted and user_q:
