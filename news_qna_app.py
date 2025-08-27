@@ -48,22 +48,32 @@ if "messages" not in st.session_state:
     }]
 
 # 메시지 렌더
-def render_messages(msgs: List[Dict[str,Any]], placeholder):
+def render_messages(msgs, placeholder):
     html = []
     for m in msgs:
         if m["role"] == "user":
             html.append(
                 f"<div style='text-align:right; margin:6px;'>"
-                f"<span style='background:#0b62e6; color:white; padding:8px 12px; border-radius:12px; display:inline-block;'>{_linkify(_escape_html(m['content']))}</span>"
+                f"<span style='background:#0b62e6; color:white; padding:8px 12px; border-radius:12px;'>{_linkify(_escape_html(m['content']))}</span>"
                 f"</div>"
             )
         else:
             html.append(
                 f"<div style='text-align:left; margin:6px;'>"
-                f"<span style='background:#f1f1f1; padding:8px 12px; border-radius:12px; display:inline-block;'>{_linkify(_escape_html(m['content']))}</span>"
+                f"<span style='background:#f1f1f1; padding:8px 12px; border-radius:12px;'>{_linkify(_escape_html(m['content']))}</span>"
                 f"<div style='font-size:11px; color:gray;'>{m['ts']}</div>"
-                f"</div>"
             )
+            # 🔎 근거칩
+            for j, src in enumerate(m.get("sources", []), 1):
+                md = src.get("metadata", {}) if isinstance(src, dict) else {}
+                title = md.get("title") or f"문서 {j}"
+                url = md.get("url")
+                score = md.get("score", 0.0)
+                label = f"#{j} {title} ({score:.2f})"
+                if url:
+                    label = f"<a href='{url}' target='_blank'>{label}</a>"
+                html.append(f"<div style='font-size:12px; color:#0b62e6; margin-left:12px;'>📎 {label}</div>")
+
     placeholder.markdown("\n".join(html), unsafe_allow_html=True)
 
 # 메시지 영역 placeholder (중요!)
@@ -72,27 +82,33 @@ messages_ph = st.empty()
 
 # 답변 생성
 def run_answer(question: str):
-    # 1) 사용자 메시지 추가 & 즉시 렌더
+    # 사용자 메시지
     st.session_state["messages"].append({
         "role": "user", "content": question, "ts": fmt_ts(datetime.now(TZ))
     })
     render_messages(st.session_state["messages"], messages_ph)
 
-    # 2) 응답 생성 (백엔드 or 데모)
+    # 답변 생성
+    sources = []
     if svc:
         try:
             result = svc.answer(question) or {}
-            ans = result.get("answer") or result.get("content") or "답변을 가져오지 못했습니다."
+            ans = result.get("answer") or "답변을 가져오지 못했습니다."
+            sources = result.get("source_documents", [])
         except Exception as e:
             ans = f"오류 발생: {e}"
     else:
         ans = f"데모 응답: '{question}'에 대한 분석 결과는 준비 중입니다."
 
-    # 3) 봇 메시지 추가 & 다시 렌더
+    # 어시스턴트 메시지 (근거 포함)
     st.session_state["messages"].append({
-        "role": "assistant", "content": ans, "ts": fmt_ts(datetime.now(TZ))
+        "role": "assistant",
+        "content": ans,
+        "sources": sources,
+        "ts": fmt_ts(datetime.now(TZ))
     })
     render_messages(st.session_state["messages"], messages_ph)
+
 
 # ---- 폼 (제출 먼저 처리 → 마지막에 렌더) ----
 with st.form("chat_form", clear_on_submit=True):
