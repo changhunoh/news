@@ -85,6 +85,9 @@ if "rag" not in st.session_state:
         st.session_state.rag = None
         st.warning(f"RAG 초기화 오류: {e}\n\nDemo 모드로 동작합니다.")
 
+rag = st.session_state.get("rag", None)
+
+
 # 아바타(이모지 or 이미지 URL 사용 가능)
 ASSISTANT_AVATAR = "🧙‍♂️"
 USER_AVATAR = "🧑‍💼"
@@ -134,14 +137,17 @@ for msg in st.session_state.messages:
 # 입력 처리
 prompt = st.chat_input("질문을 입력하세요…")
 if prompt:
-    st.session_state.messages.append({"role": "user", "content": prompt, "ts": ts_now()})
-    with st.spinner("답변 생성 중…"):
-        if rag is not None:
-            result = rag.answer(prompt)
-            answer = result.get("answer", "관련된 정보를 찾을 수 없습니다.")
-            sources = result.get("source_documents", [])
-        else:
-            answer = "데모 모드 응답입니다."
-            sources = []
-    st.session_state.messages.append({"role": "assistant", "content": answer, "ts": ts_now(), "sources": sources})
+    st.session_state.messages.append({"role":"user","content":prompt,"ts":ts_now()})
+    with st.chat_message("assistant", avatar="🧙‍♂️"):
+        with st.spinner("답변 생성 중…"):
+            if callable(rag):
+                result = rag(prompt)  # ← 함수 호출
+                answer  = result.get("answer", "관련된 정보를 찾을 수 없습니다.")
+                sources = result.get("source_documents", [])
+            else:
+                answer  = "데모 모드입니다. 백엔드가 초기화되지 않았습니다."
+                sources = []
+        st.markdown(answer)
+    # 대화 저장
+    st.session_state.messages.append({"role":"assistant","content":answer,"ts":ts_now(),"sources":sources})
     st.rerun()
