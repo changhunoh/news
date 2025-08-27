@@ -152,13 +152,14 @@ html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-tes
   min-height: 0;
 }
 
-/* 내부 스크롤 구조의 부모 래퍼 */
+/* 내부 스크롤 구조의 부모 래퍼: 반드시 flex 컨테이너여야 함 */
 .screen-shell{
   position: relative;
-  display: flex;
+  display: flex;         /* ← 필수 */
   flex-direction: column;
-  flex: 1 1 auto;   /* 남은 높이 차지 */
-  min-height: 0;    /* 자식 스크롤 수축 방지 */
+  flex: 1 1 auto;        /* 부모(카드)가 flex라 남은 높이 차지 */
+  min-height: 0;         /* 자식 스크롤 수축 방지 */
+  /* height:100% / height:auto 같이 상충되는 속성은 제거! */
 }
 
 /* :has 지원 브라우저에서 부모 element-container 높이 보장(보조 규칙) */
