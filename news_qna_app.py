@@ -5,6 +5,19 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import streamlit as st
 
+# 세션 상태 초기화 (가장 먼저!)
+if "messages" not in st.session_state:
+    st.session_state["messages"] = [{
+        "role": "assistant",
+        "content": "안녕하세요! ✅ 연금/주식 뉴스를 근거로 QnA 도와드려요. 무엇이든 물어보세요.",
+        "sources": [],
+        "ts": format_timestamp(datetime.now(TZ))
+    }]
+
+if "_preset" not in st.session_state:
+    st.session_state["_preset"] = None
+
+
 # =========================
 # 페이지 설정
 # =========================
@@ -112,7 +125,10 @@ def _build_messages_html(messages: List[Dict[str, Any]]) -> str:
     )
 
 ph_messages = st.empty()
-ph_messages.markdown(_build_messages_html(st.session_state.messages), unsafe_allow_html=True)
+ph_messages.markdown(
+    _build_messages_html(st.session_state["messages"]),
+    unsafe_allow_html=True
+)
 
 # =========================
 # CSS
@@ -499,14 +515,14 @@ st.markdown('</div></div>', unsafe_allow_html=True)
 # =========================
 def run_answer(question: str):
     now = format_timestamp(datetime.now(TZ))
-    st.session_state.messages.append({"role":"user","content":question,"sources":[], "ts":now})
+    st.session_state["messages"].append({"role":"user","content":question,"sources":[], "ts":now})
 
-    # 1) 생성 중 말풍선 추가 + 즉시 렌더
+    # pending 버블 + 즉시 렌더
     now_p = format_timestamp(datetime.now(TZ))
-    st.session_state.messages.append({"role":"assistant","content":"", "sources":[], "ts":now_p, "pending": True})
-    ph_messages.markdown(_build_messages_html(st.session_state.messages), unsafe_allow_html=True)
+    st.session_state["messages"].append({"role":"assistant","content":"", "sources":[], "ts":now_p, "pending": True})
+    ph_messages.markdown(_build_messages_html(st.session_state["messages"]), unsafe_allow_html=True)
 
-    # 2) 실제 생성 작업
+    # 생성
     with st.spinner("검색/생성 중…"):
         main = {}
         if svc is None:
@@ -520,14 +536,15 @@ def run_answer(question: str):
         main_sources = main.get("source_documents", []) or []
         answer = generate_with_context(question, main_sources)
 
-    # 3) pending 말풍선을 결과로 교체
-    st.session_state.messages[-1] = {
+    # pending 교체
+    st.session_state["messages"][-1] = {
         "role": "assistant",
         "content": answer,
         "sources": main_sources,
         "ts": format_timestamp(datetime.now(TZ))
     }
-    ph_messages.markdown(_build_messages_html(st.session_state.messages), unsafe_allow_html=True)
+    ph_messages.markdown(_build_messages_html(st.session_state["messages"]), unsafe_allow_html=True)
+
 
     
 # 재실행 후 위의 _render_messages_block가 최신 상태를 렌더합니다.
