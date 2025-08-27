@@ -315,7 +315,7 @@ def generate_with_context(question: str,
 # =========================
 # Header (제목 + 우측 회전 초기화)
 # =========================
-c1, c2 = st.columns([1, 0.16])
+c1, c2 = st.columns([1.5, 0.16])
 with c1: _md('<div class="chat-header"><div class="chat-title">🧙‍♂️ 우리 연금술사</div></div>')
 with c2:
     if st.button("🔄", help="대화 초기화", use_container_width=True):
