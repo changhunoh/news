@@ -164,8 +164,13 @@ def _render_sources_inline(sources: List[Dict[str,Any]]):
         url   = meta.get("url")
         score = float(d.get("score",0.0))
         label = f"#{i} {title} · {score:.3f}"
-        chips.append(f'<span class="source-chip">{f"<a href=\\"{url}\\" target=\\"_blank\\">{label}</a>" if url else label}</span>')
+        if url:
+            link = f'<a href="{url}" target="_blank">{label}</a>'
+        else:
+            link = label
+        chips.append(f'<span class="source-chip">{link}</span>')
     _md(f'<div class="src-row">{"".join(chips)}</div>')
+
 
 def _copy_button(text: str, key: str):
     from streamlit.components.v1 import html
