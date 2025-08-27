@@ -24,7 +24,7 @@ TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
 # 고정 폭(폰 느낌) + 반응형
 st.markdown("""
 <style>
-.block-container{ max-width:560px; margin-inline:auto; padding-top:10px; }
+.block-container{ max-width:720px; margin-inline:auto; padding-top:10px; }
 @media (max-width:640px){ .block-container{ max-width:94vw; } }
 </style>
 """, unsafe_allow_html=True)
@@ -124,102 +124,107 @@ THEME = {
 # ===== CSS (색/래핑/버튼/칩/입력창 보정 + 헤더/리셋 버튼) =====
 st.markdown(f"""
 <style>
-html, body {{ background:{THEME["bg"]} !important; color:{THEME["text"]}; }}
-h3, h4, h5, h6{{ color:{THEME["text"]}; }}
-.stMarkdown p, .stMarkdown div{{ color:{THEME["text"]}; }}
+html, body {{ 
+    background: {THEME["bg"]} !important; 
+    color: {THEME["text"]} !important; 
+}}
+h3, h4, h5, h6 {{ color: {THEME["text"]} !important; }}
+.stMarkdown p, .stMarkdown div {{ color: {THEME["text"]} !important; }}
 
 /* 상단 헤더 */
 .chat-header {{
-  display:flex; align-items:center; justify-content:space-between;
-  margin: 4px 2px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 4px 2px 12px;
 }}
-.chat-title {{ font-size:20px; font-weight:900; color:{THEME["text"]}; }}
+.chat-title {{ font-size: 20px; font-weight: 900; color: {THEME["text"]} !important; }}
 .reset-btn > button {{
-  width:38px; height:38px; border-radius:999px;
-  border:1px solid {THEME["chip_border"]} !important;
-  background:{THEME["chip_bg"]} !important;
-  color:{THEME["chip_fg"]} !important;
-  font-weight:900 !important;
-  box-shadow:0 4px 12px rgba(23,87,255,0.08);
+    width: 38px; height: 38px; border-radius: 999px;
+    border: 1px solid {THEME["chip_border"]} !important;
+    background: {THEME["chip_bg"]} !important;
+    color: {THEME["chip_fg"]} !important;
+    font-weight: 900 !important;
+    box-shadow: 0 4px 12px rgba(23,87,255,0.08);
 }}
 
 /* 추천 질문 칩(버튼) */
 div.stButton > button {{
-  border-radius:999px !important;
-  padding:8px 14px !important;
-  font-weight:700 !important;
-  font-size:14px !important;
-  border:1px solid {THEME["chip_border"]} !important;
-  background:{THEME["chip_bg"]} !important;
-  color:{THEME["chip_fg"]} !important;
-  min-height:auto !important;
+    border-radius: 999px !important;
+    padding: 8px 14px !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    border: 1px solid {THEME["chip_border"]} !important;
+    background: {THEME["chip_bg"]} !important;
+    color: {THEME["chip_fg"]} !important;
+    min-height: auto !important;
 }}
 
 /* Expander header */
-.streamlit-expanderHeader {{ font-weight:800 !important; color:{THEME["text"]} !important; }}
+.streamlit-expanderHeader {{ font-weight: 800 !important; color: {THEME["text"]} !important; }}
 
 /* 채팅 레이아웃 */
-.chat-row {{ display:flex; margin:10px 0; }}
-.user-row {{ justify-content:flex-end; }}
-.bot-row  {{ justify-content:flex-start; }}
+.chat-row {{ display: flex; margin: 10px 0; }}
+.user-row {{ justify-content: flex-end; }}
+.bot-row {{ justify-content: flex-start; }}
 
 .chat-bubble {{
-  max-width:82%;
-  padding:12px 14px;
-  border-radius:18px;
-  line-height:1.6;
-  font-size:15px;
-  background:{THEME["bot_bg"]};
-  color:{THEME["bot_fg"]};
-  border:1px solid {THEME["bubble_border"]};
-  border-bottom-left-radius:6px;
-  box-shadow:0 8px 20px rgba(15,23,42,0.08);
-  /* 텍스트 안전 래핑 */
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+    max-width: 82%;
+    padding: 12px 14px;
+    border-radius: 18px;
+    line-height: 1.6;
+    font-size: 15px;
+    background: {THEME["bot_bg"]} !important;
+    color: {THEME["bot_fg"]} !important;
+    border: 1px solid {THEME["bubble_border"]} !important;
+    border-bottom-left-radius: 6px;
+    box-shadow: 0 8px 20px rgba(15,23,42,0.08);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }}
 .user-bubble {{
-  background:{THEME["user_bg"]} !important;
-  color:{THEME["user_fg"]} !important;
-  border:0 !important;
-  border-bottom-right-radius:6px;
-  box-shadow:0 6px 18px rgba(11,98,230,0.18);
+    background: {THEME["user_bg"]} !important;
+    color: {THEME["user_fg"]} !important;
+    border: 0 !important;
+    border-bottom-right-radius: 6px;
+    box-shadow: 0 6px 18px rgba(11,98,230,0.18);
 }}
 
-.timestamp {{ font-size:12px; color:{THEME["time"]}; margin:4px 6px; }}
-.ts-left {{ text-align:left; }} .ts-right{{ text-align:right; }}
+.timestamp {{ font-size: 12px; color: {THEME["time"]} !important; margin: 4px 6px; }}
+.ts-left {{ text-align: left; }} .ts-right {{ text-align: right; }}
 
 /* 액션바(복사 등) */
-.action-bar {{ display:flex; gap:8px; margin:6px 6px 0; }}
+.action-bar {{ display: flex; gap: 8px; margin: 6px 6px 0; }}
 .action-btn {{
-  font-size:12px; padding:6px 10px; border-radius:10px;
-  border:1px solid {THEME["chip_border"]};
-  background:{THEME["chip_bg"]}; color:{THEME["chip_fg"]};
+    font-size: 12px; padding: 6px 10px; border-radius: 10px;
+    border: 1px solid {THEME["chip_border"]} !important;
+    background: {THEME["chip_bg"]} !important;
+    color: {THEME["chip_fg"]} !important;
 }}
-.action-btn:hover{{ filter:brightness(1.05); }}
+.action-btn:hover {{ filter: brightness(1.05); }}
 
 /* 출처 칩 */
 .source-chip {{
-  display:inline-block; padding:4px 10px; border-radius:999px;
-  background:{THEME["chip_bg"]}; color:{THEME["chip_fg"]}; font-weight:800; font-size:12px;
-  border:1px solid {THEME["chip_border"]}; margin:6px 6px 0 0;
+    display: inline-block; padding: 4px 10px; border-radius: 999px;
+    background: {THEME["chip_bg"]} !important; color: {THEME["chip_fg"]} !important;
+    font-weight: 800; font-size: 12px;
+    border: 1px solid {THEME["chip_border"]} !important;
+    margin: 6px 6px 0 0;
 }}
-.source-chip a{{ color:{THEME["chip_fg"]}; text-decoration:none; }}
-.source-chip a:hover{{ text-decoration:underline; }}
-.src-row {{ margin:4px 6px 0; }}
+.source-chip a {{ color: {THEME["chip_fg"]} !important; text-decoration: none; }}
+.source-chip a:hover {{ text-decoration: underline; }}
+.src-row {{ margin: 4px 6px 0; }}
 
 /* 구분선 */
-hr {{ border:0; border-top:1px solid {THEME["divider"]}; }}
+hr {{ border: 0; border-top: 1px solid {THEME["divider"]} !important; }}
 
 /* 입력창 가독성 */
 .stChatInputContainer textarea {{
-  background:{THEME["input_bg"]} !important;
-  color:{THEME["input_fg"]} !important;
-  border:1px solid {THEME["bubble_border"]} !important;
-  border-radius:12px !important;
-  padding:12px !important;
-  font-size:15px !important;
+    background: {THEME["input_bg"]} !important;
+    color: {THEME["input_fg"]} !important;
+    border: 1px solid {THEME["bubble_border"]} !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    font-size: 15px !important;
 }}
 </style>
 """, unsafe_allow_html=True)
