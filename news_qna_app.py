@@ -40,7 +40,7 @@ def get_service() -> NewsQnAService:
         embed_model_name=os.getenv("EMBED_MODEL_NAME", "gemini-embedding-001"),
         gen_model_name=os.getenv("GENAI_MODEL_NAME", "gemini-2.5-flash-lite"),
         embed_dim=int(os.getenv("EMBED_DIM", "3072")),         # Qdrant 컬렉션과 일치
-        top_k=int(os.getenv("DEFAULT_TOP_K", "5")),
+        top_k=int(os.getenv("DEFAULT_TOP_K", "10")),
         use_rerank=False,  # 필요 시 True로 바꾸고 서비스 내부 rerank 구현
     )
 
