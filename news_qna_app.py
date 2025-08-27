@@ -112,6 +112,13 @@ button[kind="secondaryFormSubmit"] {
 button[kind="secondaryFormSubmit"]:hover {
   background:#094fc0 !important;
 }
+/* 기본 폼 박스 제거 */
+div[data-testid="stForm"] {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
