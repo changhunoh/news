@@ -137,17 +137,24 @@ for msg in st.session_state.messages:
 # 입력 처리
 prompt = st.chat_input("질문을 입력하세요…")
 if prompt:
-    st.session_state.messages.append({"role":"user","content":prompt,"ts":ts_now()})
+    # ① 즉시 사용자 말풍선 렌더
+    with st.chat_message("user", avatar="🧑‍💼"):
+        st.markdown(f'<div class="bubble user">{prompt}</div>', unsafe_allow_html=True)
+
+    # ② 세션에 저장 (다음 rerun에서 위 루프가 정상 표시)
+    st.session_state.messages.append({"role": "user", "content": prompt, "ts": ts_now()})
+
+    # ③ 답변 생성 + 어시스턴트 말풍선
     with st.chat_message("assistant", avatar="🧙‍♂️"):
         with st.spinner("답변 생성 중…"):
             if callable(rag):
-                result = rag(prompt)  # ← 함수 호출
+                result = rag(prompt)
                 answer  = result.get("answer", "관련된 정보를 찾을 수 없습니다.")
                 sources = result.get("source_documents", [])
             else:
                 answer  = "데모 모드입니다. 백엔드가 초기화되지 않았습니다."
                 sources = []
-        st.markdown(answer)
-    # 대화 저장
+        st.markdown(answer, unsafe_allow_html=True)
+
     st.session_state.messages.append({"role":"assistant","content":answer,"ts":ts_now(),"sources":sources})
     st.rerun()
