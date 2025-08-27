@@ -299,6 +299,39 @@ button, .stButton > button, .stDownloadButton > button{
 """, unsafe_allow_html=True)
 
 
+st.markdown("""
+<script>
+(function(){
+  function fit(){
+    const card = document.querySelector('.block-container > :first-child');
+    const body = document.getElementById('screen-body') || document.querySelector('.screen-body');
+    const dock = document.querySelector('.chat-dock');
+    if(!card || !body) return;
+
+    const cardRect = card.getBoundingClientRect();
+    const bodyRect = body.getBoundingClientRect();
+    const topInside = bodyRect.top - cardRect.top;
+
+    const dockH = (dock ? dock.offsetHeight : 0) + 16; // 아래 여유
+    const targetH = card.clientHeight - topInside - dockH;
+
+    if (targetH > 120) {
+      body.style.height = targetH + 'px';
+      body.style.overflowY = 'auto';
+    }
+  }
+  // 초기/리사이즈/레이아웃 변화에 맞춰 재계산
+  window.addEventListener('load', fit);
+  window.addEventListener('resize', fit);
+  const ro = new ResizeObserver(fit);
+  ro.observe(document.body);
+  setTimeout(fit, 50); setTimeout(fit, 200); setTimeout(fit, 600);
+})();
+</script>
+""", unsafe_allow_html=True)
+
+
+
 # =========================
 # 백엔드 서비스 (선택)
 # =========================
