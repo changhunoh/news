@@ -198,6 +198,28 @@ st.markdown("""
   box-shadow: 2px 6px 12px rgba(11,98,230,.22);
   transform: rotate(45deg); border-top-right-radius:3px;
 }
+/* 말풍선 폭을 조금 넓히고, 줄바꿈 규칙을 한국어 친화적으로 조정 */
+.bubble{
+  display: inline-block;
+  /* 화면에 따라 가변 폭: 최소 260px ~ 최대 680px 사이 */
+  max-width: clamp(260px, 60vw, 680px);
+  /* 내용 줄바꿈 규칙 */
+  white-space: pre-wrap;        /* \n 유지 + 일반 줄바꿈 허용 */
+  word-break: keep-all;         /* 한국어 단어(조합) 중간 단위로 끊지 않음 */
+  overflow-wrap: break-word;    /* 너무 길면 단어 기준으로만 줄바꿈 */
+}
+
+/* 유저/봇 공통으로 내부 텍스트에도 동일 규칙 적용(링크 등 인라인 요소 포함) */
+.bubble, .bubble *{
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 필요시: 아주 긴 URL 같은 비연속 문자열은 anywhere로 최후 보정 */
+.bubble a{
+  overflow-wrap: anywhere;  /* 링크가 너무 길면 어딘가에서라도 꺾이도록 */
+}
 </style>
 """, unsafe_allow_html=True)
 
