@@ -23,14 +23,13 @@ _prime_env_from_secrets()
 TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
 
 # 라이트 강제(브라우저/컨테이너 전역)
-st.markdown('<meta name="color-scheme" content="light">', unsafe_allow_html=True)
 st.markdown("""
 <style>
 :root { color-scheme: light !important; }
 
 /* 배경/글자 라이트 고정 */
 html, body,
-[data-testid="stAppViewContainer"], section.main, .stMain, .block-container,
+[data-testid="stAppViewContainer"], section.main, .stMain, .stBlock, .block-container,
 [data-testid="stHeader"], [data-testid="stSidebar"] {
   background: #f6f8fb !important; color: #1f2a44 !important;
 }
@@ -57,9 +56,25 @@ hr{ border:0; border-top:1px solid #e6ebf4 !important; }
   border-radius:12px !important; padding:12px !important; font-size:15px !important;
 }
 
-/* 헤더 */
-.chat-header{ display:flex; align-items:center; justify-content:space-between; margin: 4px 2px 12px; }
-.chat-title{ font-size:20px; font-weight:900; color:#1f2a44; }
+/* 헤더 - 수정: overflow 방지 및 wrapping 지원 */
+.chat-header{ 
+  display:flex; 
+  align-items:center; 
+  justify-content:space-between; 
+  margin: 4px 2px 12px; 
+  flex-wrap: wrap;  /* 내용이 넘칠 때 줄바꿈 허용 */
+  gap: 10px;  /* 컬럼 간 간격 추가로 안정성 향상 */
+}
+.chat-title{ 
+  font-size:20px; 
+  font-weight:900; 
+  color:#1f2a44; 
+  word-break: break-word;  /* 긴 단어 깨짐 처리 */
+  overflow: visible;  /* overflow 숨김 방지 */
+  white-space: normal;  /* 줄바꿈 허용 */
+  flex-shrink: 1;  /* 컬럼 너비 초과 시 축소 */
+  flex-grow: 1;  /* 가능한 공간 채우기 */
+}
 .reset-btn>button{
   width:38px; height:38px; border-radius:999px !important;
   background:#eef4ff !important; color:#1757ff !important; border:1px solid #dce7ff !important;
@@ -315,7 +330,7 @@ def generate_with_context(question: str,
 # =========================
 # Header (제목 + 우측 회전 초기화)
 # =========================
-c1, c2 = st.columns([1.5, 0.16])
+c1, c2 = st.columns([2.0, 0.2])
 with c1: _md('<div class="chat-header"><div class="chat-title">🧙‍♂️ 우리 연금술사</div></div>')
 with c2:
     if st.button("🔄", help="대화 초기화", use_container_width=True):
