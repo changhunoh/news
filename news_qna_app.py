@@ -277,62 +277,88 @@ with st.sidebar.expander("🧩 debug dump (붙여넣어 주시면 돼요)"):
             st.exception(e)
 
     # 2) svc 우회: Vertex 임베딩 + Qdrant 직접 검색(검색단만 점검)
-    if st.button("Qdrant 직접 검색(LLM 제외)", key="raw_search_btn"):
+    # --- Qdrant 직접 검색(LLM 제외) : 로컬과 완전 동일한 파라미터로 ---
+if st.button("Qdrant 직접 검색(LLM 제외)", key="raw_search_btn"):
+    try:
+        import vertexai
+        from vertexai.language_models import TextEmbeddingModel, TextEmbeddingInput
+        from qdrant_client import models
+
+        project = os.getenv("GOOGLE_CLOUD_PROJECT")
+        location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+        if project:
+            vertexai.init(project=project, location=location)
+
+        emb_name = os.getenv("EMBED_MODEL_NAME", "gemini-embedding-001")
+        emb_dim  = int(os.getenv("EMBED_DIM", "3072"))
+        emb_norm = os.getenv("EMBED_NORMALIZE", "false").lower() == "true"
+        top_k    = int(os.getenv("DEFAULT_TOP_K", "100"))  # 로컬과 동일하게
+
+        model = TextEmbeddingModel.from_pretrained(emb_name)
+        inputs = [TextEmbeddingInput(text=q, task_type="RETRIEVAL_QUERY")]
+        qv = model.get_embeddings(inputs, output_dimensionality=emb_dim)[0].values
+
+        # 선택: 적재를 정규화했다면 질의도 동일하게 정규화
+        if emb_norm:
+            import math
+            n = math.sqrt(sum(x*x for x in qv)) or 1.0
+            qv = [x / n for x in qv]
+
+        # 검색 파라미터도 통일
+        search_params = models.SearchParams(
+            hnsw_ef=int(os.getenv("QDRANT_HNSW_EF", "128")),
+            exact=os.getenv("QDRANT_EXACT", "false").lower() == "true",
+        )
+
+        hits = client.search(
+            collection_name=col,
+            query_vector=qv,
+            limit=top_k,
+            with_payload=True,
+            with_vectors=False,
+            search_params=search_params,
+        )
+
+        # 컬렉션 distance 모드 (cosine/dot/euclid)
         try:
-            import vertexai
-            from vertexai.language_models import TextEmbeddingModel
-            project = os.getenv("GOOGLE_CLOUD_PROJECT")
-            location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-            if project:
-                vertexai.init(project=project, location=location)
-            emb_model_name = os.getenv("EMBED_MODEL_NAME", "gemini-embedding-001")
-            emb_model = TextEmbeddingModel.from_pretrained(emb_model_name)
-            qv = emb_model.get_embeddings([q])[0].values  # 3072 차원
+            params = info.config.params
+            dist_mode = str(params.vectors.distance).lower()
+        except Exception:
+            dist_mode = "unknown"
 
-            from qdrant_client import models
-            hits = client.search(
-                collection_name=col,
-                query_vector=qv,
-                limit=int(os.getenv("DEFAULT_TOP_K", "8")),
-                with_payload=True,
-                with_vectors=False,
+        st.write("검색 결과 개수:", len(hits))
+
+        for i, h in enumerate(hits[:5], 1):
+            payload = h.payload or {}
+
+            # ✅ 당신 DB 스키마: { "doc": ..., "metadata": {...} }
+            doc = payload.get("doc")
+            if isinstance(doc, dict):
+                text = doc.get("content") or doc.get("text") or doc.get("page_content") or ""
+            elif isinstance(doc, str):
+                text = doc
+            else:
+                text = payload.get("content") or payload.get("text") or ""
+
+            # Qdrant score는 보통 distance → cosine이면 sim = 1 - dist
+            dist = float(getattr(h, "score", 0.0))
+            sim = (1.0 - dist) if "cosine" in dist_mode else None
+
+            title = (
+                (payload.get("metadata") or {}).get("title")
+                or payload.get("title") or payload.get("path")
+                or payload.get("source") or payload.get("file_name")
+                or f"문서 {i}"
             )
-            st.write("검색 결과 개수:", len(hits))
+            url = (payload.get("metadata") or {}).get("url") or payload.get("url") or payload.get("link")
 
-            # 컬렉션 distance 읽기 (cosine/dot/euclid)
-            try:
-                params = info.config.params
-                dist_mode = str(params.vectors.distance).lower()
-            except Exception:
-                dist_mode = "unknown"
-
-            for i, h in enumerate(hits[:5], 1):
-                payload = h.payload or {}
-                # qdrant_client는 보통 distance를 score 속성에 담아줌
-                dist = float(getattr(h, "score", 0.0))
-                sim = (1.0 - dist) if "cosine" in dist_mode else None
-
-                title = (
-                    payload.get("title") or payload.get("path") or
-                    payload.get("source") or payload.get("file_name") or f"문서 {i}"
-                )
-                url = payload.get("url") or payload.get("link")
-                # 당신 DB는 payload = { "doc": ..., "metadata": {...} } 라고 했죠
-                doc = payload.get("doc")
-                if isinstance(doc, dict):
-                    text = doc.get("content") or doc.get("text") or doc.get("page_content") or ""
-                elif isinstance(doc, str):
-                    text = doc
-                else:
-                    text = payload.get("content") or payload.get("text") or ""
-
-                head = f"**#{i} {title}**"
-                if sim is not None:
-                    head += f"  | sim={sim:.4f} (dist={dist:.4f}, {dist_mode})"
-                else:
-                    head += f"  | dist={dist:.4f} ({dist_mode})"
-                st.markdown(head)
-                if url: st.markdown(f"[원문]({url})")
-                st.code((text[:600] + (" …" if len(text) > 600 else "")))
-        except Exception as e:
-            st.exception(e)
+            head = f"**#{i} {title}**"
+            if sim is not None:
+                head += f"  | sim={sim:.4f} (dist={dist:.4f}, {dist_mode})"
+            else:
+                head += f"  | dist={dist:.4f} ({dist_mode})"
+            st.markdown(head)
+            if url: st.markdown(f"[원문]({url})")
+            st.code((text[:600] + (" …" if len(text) > 600 else "")))
+    except Exception as e:
+        st.exception(e)
