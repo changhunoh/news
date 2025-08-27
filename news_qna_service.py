@@ -121,55 +121,111 @@ class NewsQnAService:
         # 지금은 그대로 top_k 상위만 리턴
         return (docs or [])[: self.top_k]
 
-    def generate(self, question: str, docs: List[Dict[str, Any]]) -> str:
-        if not docs:
-            return "관련된 정보를 찾을 수 없습니다."
-        ctx = "\n\n".join(d["content"] for d in docs)
-        prompt = f"""
-          당신은 주식시장과 연금에 정통한 전문 애널리스트입니다.  
-          아래 컨텍스트를 근거로 한국어 답변을 작성하세요.  
-      
-        [작성 지침]  
-        1. 답변은 **3단락 이상**으로 구성하세요.  
-           - (1) 현황 요약  
-           - (2) 원인/맥락 분석  
-           - (3) 향후 전망 및 투자자 조언  
-        2. **중요 포인트는 굵게**, 핵심 수치는 `코드블록 스타일`로 표시하세요.  
-        3. 답변 중간에는 ▸, ✔, ✦ 같은 불릿 아이콘을 활용해 시각적으로 보기 좋게 정리하세요.  
-        4. 마지막에 `---` 구분선을 넣고, 근거 기사 한 줄 요약을 첨부하세요.  
-        5. 모호하거나 근거 없는 내용은 쓰지 말고 "관련된 정보를 찾을 수 없습니다."라고 답하세요.
+    def _approx_token_len(self, s: str) -> int:
+    # 대략 1 token ~= 4 chars 가정
+    return max(1, len(s) // 4)
 
-        [답변예시]
-        📊 현황 요약
+def _clip_docs(self, docs, per_doc_chars=1200, max_total_chars=12000):
+    clipped = []
+    total = 0
+    for d in docs:
+        txt = (d.get("content") or "").strip()
+        if not txt:
+            continue
+        if len(txt) > per_doc_chars:
+            txt = txt[:per_doc_chars] + "…"
+        if total + len(txt) > max_total_chars:
+            remain = max_total_chars - total
+            if remain <= 0:
+                break
+            txt = txt[:remain] + "…"
+        nd = dict(d)
+        nd["content"] = txt
+        clipped.append(nd)
+        total += len(txt)
+    return clipped
 
-        최근 엔비디아 주가가 30일 종가 기준 100일 이동평균선 아래로 하락하면서 기술적 지표상 부정적인 신호가 발생했습니다. 특히 변동성이 비트코인보다도 2배 이상 높아졌다는 점이 투자자 불안 심리를 키우고 있습니다.
+    def _make_prompt(self, question: str, ctx: str) -> str:
+    return f"""
+        당신은 주식시장과 연금에 정통한 전문 애널리스트입니다.
+        아래 컨텍스트를 근거로 **한국어** 답변을 작성하세요.
 
-        🔍 원인 및 배경
-        
-        ▸ 최근 2주간 빅테크 전반의 약세가 동반되며 엔비디아 주가에 부담이 되었고,
-        ▸ 금리 인하 시 수혜주에 대한 관심이 분산된 것도 추가적인 하락 압력으로 작용했습니다.
-        그러나 일부 전문가들은 이번 조정이 장기 성장성에는 큰 영향을 주지 않을 것이라 강조하고 있습니다.
-
-        📈 향후 전망 & 투자자 조언
-
-        ✔ 단기적으로는 추가 하락 가능성을 염두에 두어야 하며, 보수적 투자자라면 관망이 유리합니다.
-        ✔ 반면, 장기적 관점에서는 매수 기회로 작용할 수 있다는 점에서 공격적 투자자에게는 긍정적일 수 있습니다.
-        ✦ 따라서 리스크 관리와 분할 매수 전략이 균형 잡힌 접근법이 될 것입니다.
-
-        📰 근거 기사: 엔비디아 주가가 30일 종가 기준 100일 이동평균선 아래로 떨어지며 기술적 부정 신호 발생
+        [작성 지침]
+        1) (현황 요약) → (원인/맥락) → (전망/조언) 의 3단락 이상
+        2) 중요 포인트는 **굵게**, 핵심 수치는 `코드블록` 스타일
+        3) ▸, ✔, ✦ 등의 불릿으로 가독성 향상
+        4) 📊, 🔍, 📈 등 답변에 적절한 이모지를 사용해주세요.
+        5) 마지막에 --- 넣고 근거 기사 한 줄 요약
+        6) 모호/근거없음 → "관련된 정보를 찾을 수 없습니다."라고 명시
         
         [컨텍스트]
         {ctx}
         
         [질문]
         {question}
-        """
-        try:
-            resp = self.gen_model.generate_content(prompt, generation_config={"temperature": 0.2, "max_output_tokens": 1200})
-            return (resp.text or "").strip()
-        except Exception as e:
-            return f"답변 생성 중 오류가 발생했습니다: {e}"
+        """.strip()
 
+    def generate(self, question: str, docs: List[Dict[str, Any]]) -> str:
+    if not docs:
+        return "관련된 정보를 찾을 수 없습니다."
+
+    # 1) 컨텍스트 클리핑 (문서당/전체 길이 제한)
+    docs_small = self._clip_docs(docs,
+                                 per_doc_chars=1200,   # 필요시 800~1500 사이로 조절
+                                 max_total_chars=12000)  # 전체 컨텍스트 상한
+
+    ctx = "\n\n".join(d["content"] for d in docs_small)
+    prompt = self._make_prompt(question, ctx)
+
+    # 2) 토큰 예산 보호: 전체 8k 토큰 내에서 프롬프트 6k 이하로 제한
+    #    (rough) 1 token ≈ 4 chars → 6000 tokens ~= 24000 chars
+    MAX_PROMPT_TOKENS = 6000
+    MAX_PROMPT_CHARS = MAX_PROMPT_TOKENS * 4
+    if len(prompt) > MAX_PROMPT_CHARS:
+        # 뒤를 자르면 예시와 지침이 사라질 수 있으므로 컨텍스트를 더 줄입니다.
+        over = len(prompt) - MAX_PROMPT_CHARS
+        # 컨텍스트만 줄이기: 뒤쪽 일부 제거
+        keep = max(0, len(ctx) - over - 1000)  # 지침/헤더 여유
+        ctx = (ctx[:keep] + "…") if keep > 0 else ""
+        prompt = self._make_prompt(question, ctx)
+
+    gcfg = {"temperature": 0.2, "max_output_tokens": 800}
+
+    def _call_model(p: str):
+        try:
+            resp = self.gen_model.generate_content(p, generation_config=gcfg)
+            # 안전: candidates가 없거나 text가 없을 수 있음
+            text = getattr(resp, "text", None)
+            if text:
+                return text.strip()
+            # candidates에서 parts를 직접 확인
+            cands = getattr(resp, "candidates", None)
+            if cands and getattr(cands[0], "content", None):
+                parts = getattr(cands[0].content, "parts", None)
+                if parts and hasattr(parts[0], "text"):
+                    return (parts[0].text or "").strip()
+            # 여기까지 못 얻으면 실패로 간주
+            raise RuntimeError("empty_text")
+        except Exception as e:
+            raise e
+
+    # 3) 1차 호출
+    try:
+        return _call_model(prompt)
+    except Exception:
+        # 4) 재시도 전략: 더 짧은 컨텍스트 + 보수적 지침
+        docs_tiny = self._clip_docs(docs, per_doc_chars=600, max_total_chars=6000)
+        ctx2 = "\n\n".join(d["content"] for d in docs_tiny)
+        prompt2 = self._make_prompt(question, ctx2)
+        try:
+            return _call_model(prompt2)
+        except Exception as e2:
+            # 5) 최종 실패: 이유 알려주고 최소 응답
+            return (
+                "관련된 정보를 찾을 수 없습니다.\n\n"
+                f"사유: 모델 안전/길이 제한으로 응답을 생성하지 못했습니다. "
+                f"질문을 더 구체적으로 주시거나(예: 기간/종목/이슈), 컨텍스트를 줄여 다시 시도해 주세요."
+            )
     # ---------- public APIs ----------
     def answer(self, question: str) -> Dict[str, Any]:
         docs = self.retrieve(question)
