@@ -1,10 +1,11 @@
 # app.py
-import os, io, re, json
-import numpy as np
-import streamlit as st
+import os, io, re
 from typing import List, Dict, Any
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+import numpy as np
+import streamlit as st
 
 # ----------------------------
 # Page config & Secrets → ENV
@@ -32,7 +33,7 @@ st.markdown("""
 # ----------------------------
 # Backend service
 # ----------------------------
-from news_qna_service import NewsQnAService
+from news_qna_service import NewsQnAService  # 같은 리포에 있어야 합니다.
 
 @st.cache_resource
 def get_service() -> NewsQnAService:
@@ -97,29 +98,13 @@ if "messages" not in st.session_state:
     }]
 if "temp_docs" not in st.session_state:
     st.session_state.temp_docs: List[Dict[str, Any]] = []  # 업로드 임시 인덱스
-if "dark" not in st.session_state:
-    st.session_state.dark = False
 if "_preset" not in st.session_state:
     st.session_state._preset = None
 
 # ----------------------------
-# Sidebar
+# Light Theme (강제 적용)
 # ----------------------------
-with st.sidebar:
-    st.markdown("### ⚙️ 설정")
-    st.session_state.dark = st.toggle("🌙 다크 모드", value=st.session_state.dark)
-    if st.button("🗑️ 대화 초기화"):
-        st.session_state.messages = [{
-            "role": "assistant",
-            "content": "대화를 새로 시작합니다. 무엇이 궁금하신가요?",
-            "sources": [], "ts": datetime.now(TZ).strftime("%Y-%m-%d %H:%M")
-        }]
-        st.rerun()
-
-# ----------------------------
-# Theme & CSS (색/래핑/버튼/칩/입력창 보정)
-# ----------------------------
-LIGHT = {
+THEME = {
     "bg": "#f6f8fb",
     "text": "#1f2a44",
     "muted": "#5b6785",
@@ -136,30 +121,28 @@ LIGHT = {
     "input_bg": "#ffffff",
     "input_fg": "#1f2a44",
 }
-DARK = {
-    "bg": "#0f172a",
-    "text": "#e2e8f0",
-    "muted": "#94a3b8",
-    "user_bg": "#2563eb",
-    "user_fg": "#eaf2ff",
-    "bot_bg": "#111827",
-    "bot_fg": "#e5e7eb",
-    "bubble_border": "#1f2937",
-    "chip_bg": "#0b1730",
-    "chip_fg": "#93c5fd",
-    "chip_border": "#1e3a5f",
-    "divider": "#1f2937",
-    "time": "#94a3b8",
-    "input_bg": "#0b1222",
-    "input_fg": "#e2e8f0",
-}
-TH = DARK if st.session_state.dark else LIGHT
 
+# ===== CSS (색/래핑/버튼/칩/입력창 보정 + 헤더/리셋 버튼) =====
 st.markdown(f"""
 <style>
-html, body {{ background:{TH["bg"]} !important; color:{TH["text"]}; }}
-h3, h4, h5, h6{{ color:{TH["text"]}; }}
-.stMarkdown p, .stMarkdown div{{ color:{TH["text"]}; }}
+html, body {{ background:{THEME["bg"]} !important; color:{THEME["text"]}; }}
+h3, h4, h5, h6{{ color:{THEME["text"]}; }}
+.stMarkdown p, .stMarkdown div{{ color:{THEME["text"]}; }}
+
+/* 상단 헤더 */
+.chat-header {{
+  display:flex; align-items:center; justify-content:space-between;
+  margin: 4px 2px 12px;
+}}
+.chat-title {{ font-size:20px; font-weight:900; color:{THEME["text"]}; }}
+.reset-btn > button {{
+  width:38px; height:38px; border-radius:999px;
+  border:1px solid {THEME["chip_border"]} !important;
+  background:{THEME["chip_bg"]} !important;
+  color:{THEME["chip_fg"]} !important;
+  font-weight:900 !important;
+  box-shadow:0 4px 12px rgba(23,87,255,0.08);
+}}
 
 /* 추천 질문 칩(버튼) */
 div.stButton > button {{
@@ -167,14 +150,14 @@ div.stButton > button {{
   padding:8px 14px !important;
   font-weight:700 !important;
   font-size:14px !important;
-  border:1px solid {TH["chip_border"]} !important;
-  background:{TH["chip_bg"]} !important;
-  color:{TH["chip_fg"]} !important;
+  border:1px solid {THEME["chip_border"]} !important;
+  background:{THEME["chip_bg"]} !important;
+  color:{THEME["chip_fg"]} !important;
   min-height:auto !important;
 }}
 
 /* Expander header */
-.streamlit-expanderHeader {{ font-weight:800 !important; color:{TH["text"]} !important; }}
+.streamlit-expanderHeader {{ font-weight:800 !important; color:{THEME["text"]} !important; }}
 
 /* 채팅 레이아웃 */
 .chat-row {{ display:flex; margin:10px 0; }}
@@ -187,57 +170,54 @@ div.stButton > button {{
   border-radius:18px;
   line-height:1.6;
   font-size:15px;
+  background:{THEME["bot_bg"]};
+  color:{THEME["bot_fg"]};
+  border:1px solid {THEME["bubble_border"]};
+  border-bottom-left-radius:6px;
+  box-shadow:0 8px 20px rgba(15,23,42,0.08);
   /* 텍스트 안전 래핑 */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
 }}
-
 .user-bubble {{
-  background:{TH["user_bg"]};
-  color:{TH["user_fg"]};
+  background:{THEME["user_bg"]} !important;
+  color:{THEME["user_fg"]} !important;
+  border:0 !important;
   border-bottom-right-radius:6px;
-  box-shadow:0 6px 18px rgba(11,98,230,0.25);
+  box-shadow:0 6px 18px rgba(11,98,230,0.18);
 }}
 
-.bot-bubble {{
-  background:{TH["bot_bg"]};
-  color:{TH["bot_fg"]};
-  border:1px solid {TH["bubble_border"]};
-  border-bottom-left-radius:6px;
-  box-shadow:0 8px 20px rgba(15,23,42,0.20);
-}}
-
-.timestamp {{ font-size:12px; color:{TH["time"]}; margin:4px 6px; }}
+.timestamp {{ font-size:12px; color:{THEME["time"]}; margin:4px 6px; }}
 .ts-left {{ text-align:left; }} .ts-right{{ text-align:right; }}
 
 /* 액션바(복사 등) */
 .action-bar {{ display:flex; gap:8px; margin:6px 6px 0; }}
 .action-btn {{
   font-size:12px; padding:6px 10px; border-radius:10px;
-  border:1px solid {TH["chip_border"]};
-  background:{TH["chip_bg"]}; color:{TH["chip_fg"]};
+  border:1px solid {THEME["chip_border"]};
+  background:{THEME["chip_bg"]}; color:{THEME["chip_fg"]};
 }}
 .action-btn:hover{{ filter:brightness(1.05); }}
 
 /* 출처 칩 */
 .source-chip {{
   display:inline-block; padding:4px 10px; border-radius:999px;
-  background:{TH["chip_bg"]}; color:{TH["chip_fg"]}; font-weight:800; font-size:12px;
-  border:1px solid {TH["chip_border"]}; margin:6px 6px 0 0;
+  background:{THEME["chip_bg"]}; color:{THEME["chip_fg"]}; font-weight:800; font-size:12px;
+  border:1px solid {THEME["chip_border"]}; margin:6px 6px 0 0;
 }}
-.source-chip a{{ color:{TH["chip_fg"]}; text-decoration:none; }}
+.source-chip a{{ color:{THEME["chip_fg"]}; text-decoration:none; }}
 .source-chip a:hover{{ text-decoration:underline; }}
 .src-row {{ margin:4px 6px 0; }}
 
 /* 구분선 */
-hr {{ border:0; border-top:1px solid {TH["divider"]}; }}
+hr {{ border:0; border-top:1px solid {THEME["divider"]}; }}
 
 /* 입력창 가독성 */
 .stChatInputContainer textarea {{
-  background:{TH["input_bg"]} !important;
-  color:{TH["input_fg"]} !important;
-  border:1px solid {TH["bubble_border"]} !important;
+  background:{THEME["input_bg"]} !important;
+  color:{THEME["input_fg"]} !important;
+  border:1px solid {THEME["bubble_border"]} !important;
   border-radius:12px !important;
   padding:12px !important;
   font-size:15px !important;
@@ -255,15 +235,13 @@ def _escape_html(s: str) -> str:
     return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 def _linkify(s: str) -> str:
-    # 매우 단순한 http/https 링크 인식
     pattern = r"(https?://[\w\-\./%#\?=&:+,~]+)"
     return re.sub(pattern, r'<a href="\1" target="_blank">\1</a>', s)
 
 def _render_message(text: str, sender: str, ts: str):
     row = "user-row" if sender == "user" else "bot-row"
     bub = "user-bubble" if sender == "user" else "bot-bubble"
-    safe = _escape_html(text or "")
-    safe = _linkify(safe)
+    safe = _linkify(_escape_html(text or ""))
     _md(f'<div class="chat-row {row}"><div class="chat-bubble {bub}">{safe}</div></div>')
     _md(f'<div class="timestamp {"ts-right" if sender=="user" else "ts-left"}">{ts}</div>')
 
@@ -282,9 +260,9 @@ def _render_sources_inline(sources: List[Dict[str,Any]]):
     _md(f'<div class="src-row">{"".join(chips)}</div>')
 
 def _copy_button(text: str, key: str):
-    from streamlit.components.v1 import html
-    safe = (text or "").replace("\\", "\\\\").replace("`","\\`")
-    html(f"""
+    from streamlit.components.v1 import html as st_html
+    safe = (text or "").replace("\\", "\\\\").replace("`", "\\`")
+    st_html(f"""
 <div class="action-bar">
   <button class="action-btn" id="copy-{key}" data-text="{safe}">📋 복사</button>
   <span class="small" id="copied-{key}" style="display:none;">복사됨!</span>
@@ -418,10 +396,23 @@ def generate_with_context(question: str,
         return f"답변 생성 중 오류가 발생했습니다: {e}"
 
 # ----------------------------
-# Header & Presets & Uploader
+# Header (제목 + 우측 회전 초기화 버튼)
 # ----------------------------
-st.markdown("### 💬 나의 퇴직연금 챗봇")
+col_t, col_btn = st.columns([1, 0.16])
+with col_t:
+    st.markdown('<div class="chat-header"><div class="chat-title">💬 나의 퇴직연금 챗봇</div></div>', unsafe_allow_html=True)
+with col_btn:
+    if st.button("🔄", help="대화 초기화", use_container_width=True):
+        st.session_state.messages = [{
+            "role": "assistant",
+            "content": "대화를 새로 시작합니다. 무엇이 궁금하신가요?",
+            "sources": [], "ts": datetime.now(TZ).strftime("%Y-%m-%d %H:%M")
+        }]
+        st.rerun()
 
+# ----------------------------
+# Presets & Uploader
+# ----------------------------
 preset_cols = st.columns(3)
 presets = ["우리금융지주 전망?", "호텔신라 실적 포인트?", "배당주 포트 제안"]
 for i, label in enumerate(presets):
@@ -458,14 +449,10 @@ def run_answer(question: str):
     _render_message(question, "user", now)
 
     with st.spinner("검색/생성 중…"):
-        # 1) 메인 RAG (Qdrant)
         main = svc.answer(question) or {}
         main_sources = main.get("source_documents", []) or []
-        # 2) 임시 인덱스
         extra = search_temp_index(question, top_k=5)
-        # 3) 병합 컨텍스트로 답변 생성
         answer = generate_with_context(question, main_sources, extra)
-        # 4) 최종 출처(임시 + 메인 일부)
         merged_sources = (extra or []) + (main_sources[:5] if main_sources else [])
 
     now2 = datetime.now(TZ).strftime("%Y-%m-%d %H:%M")
@@ -475,7 +462,7 @@ def run_answer(question: str):
     _render_sources_inline(merged_sources)
 
 # ----------------------------
-# Chat input
+# Chat input + 재생성
 # ----------------------------
 q = st.chat_input(placeholder="질문을 입력하세요…", key="chat_input")
 if not q:
@@ -485,14 +472,12 @@ if q:
     run_answer(q)
     st.session_state._preset = None
 
-# 🔁 답변 다시 생성
 if len(st.session_state.messages) >= 2:
     last_user = None
     for m in reversed(st.session_state.messages):
         if m["role"] == "user":
             last_user = m["content"]
             break
-    col1, col2 = st.columns([1, 3])
-    with col1:
+    if last_user:
         if st.button("🔁 답변 다시 생성", use_container_width=True):
             run_answer(last_user)
