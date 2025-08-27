@@ -1,4 +1,4 @@
-import os, threading
+import os, threading, json
 from typing import List, Dict, Any, Optional, TypedDict
 import vertexai
 from vertexai.language_models import TextEmbeddingModel, TextEmbeddingInput
@@ -6,24 +6,38 @@ from vertexai.generative_models import GenerativeModel
 from qdrant_client import QdrantClient
 from google.oauth2 import service_account
 import streamlit as st  # Streamlit secrets 사용 시
-from dotenv import load_dotenv
 from langgraph.graph import StateGraph, START, END
 
-# 🔐 Streamlit secrets → 서비스계정 크레덴셜
-sa_info = None
-try:
-    sa_info = st.secrets.get("gcp_service_account", None)
-except Exception:
-    sa_info = None
+_vertex_ready = False
 
-creds = None
-if sa_info:
-    creds = service_account.Credentials.from_service_account_info(
-        dict(sa_info),
-        scopes=["https://www.googleapis.com/auth/cloud-platform"],
-    )
+def _ensure_vertex():
+    global _vertex_ready
+    if _vertex_ready:
+        return
+    creds = None
 
-load_dotenv()
+    # 1) 환경변수에 서비스계정 JSON이 있는 경우 (선호)
+    sa_json = os.getenv("GCP_SERVICE_ACCOUNT_JSON")
+    if sa_json:
+        creds = service_account.Credentials.from_service_account_info(
+            json.loads(sa_json),
+            scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        )
+    else:
+        # 2) Streamlit secrets 에 있는 경우
+        try:
+            import streamlit as st
+            sa_info = st.secrets.get("gcp_service_account", None)
+            if sa_info:
+                creds = service_account.Credentials.from_service_account_info(
+                    dict(sa_info),
+                    scopes=["https://www.googleapis.com/auth/cloud-platform"],
+                )
+        except Exception:
+            pass
+    # 3) 위가 없으면 ADC(Application Default Credentials) 시도
+    vertexai.init(project=GCP_PROJECT, location=GCP_LOCATION, credentials=creds)
+    _vertex_ready = True
 
 # ==== Config ====
 GCP_PROJECT      = os.getenv("GOOGLE_CLOUD_PROJECT")
@@ -87,6 +101,7 @@ class RAGState(TypedDict):
 # LangGraph Nodes
 # ---------------------------
 def retrieve(state: RAGState) -> RAGState:
+    _ensure_vertex()
     question = state["question"]
     print(f"[STEP] Retrieving documents for query: '{question}'")
 
@@ -155,6 +170,7 @@ def rerank_with_vertex(state: RAGState) -> RAGState:
     return state
 
 def generate(state: RAGState) -> RAGState:
+    _ensure_vertex()
     question = state["question"]
     documents = state["documents"]
 
@@ -190,7 +206,7 @@ def generate(state: RAGState) -> RAGState:
         state["answer"] = answer
     except Exception as e:
         print(f"[ERROR] Failed to generate answer: {e}")
-        state["answer"] = "답변 생성 중 오류가 발생했습니다."
+        state["answer"] = "관련된 정보를 찾을 수 없습니다. (모델 초기화/자격 증명 확인 필요)"
 
     return state
 
