@@ -63,8 +63,8 @@ class NewsQnAService:
         self.embed_model_name = embed_model_name or os.getenv("EMBED_MODEL_NAME", "gemini-embedding-001")
         self.gen_model_name = gen_model_name or os.getenv("GENAI_MODEL_NAME", "gemini-2.5-pro")
         self.embed_dim = int(embed_dim or int(os.getenv("EMBED_DIM", "3072")))
-        self.top_k = int(top_k or int(os.getenv("DEFAULT_TOP_K", "5")))
-        self.rerank_top_k = int(rerank_top_k or int(os.getenv("RERANK_TOP_K", "10")))
+        self.top_k = int(top_k or int(os.getenv("DEFAULT_TOP_K", "10")))
+        self.rerank_top_k = int(rerank_top_k or int(os.getenv("RERANK_TOP_K", "5")))
         self.use_rerank = use_rerank
 
         self.qc = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_key)
