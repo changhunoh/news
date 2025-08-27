@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 
 # =========================
-# 페이지 설정 (최초 Streamlit 호출 전/초기에!)
+# 페이지 설정
 # =========================
 st.set_page_config(page_title="우리 연금술사", page_icon="📰", layout="centered")
 
@@ -39,12 +39,10 @@ def _escape_html(s: Optional[str]) -> str:
     return (s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
 
 def _linkify(s: str) -> str:
-    # 과도 이스케이프 수정 (\w, \? 등)
     return re.sub(r"(https?://[\w\-\./%#\?=&:+,~]+)", r'<a href="\1" target="_blank">\1</a>', s or "")
 
 def _render_messages_block(messages: List[Dict[str, Any]]):
-    # 메시지들을 **하나의 HTML 블록**으로 만들어 한 번만 렌더
-    # (Streamlit이 element-container로 쪼개지 못하게 -> 내부 스크롤 정상 동작)
+    """메시지 전부를 단일 HTML 블록으로 렌더(내부 스크롤 + 자동 스크롤 + Dock 가려짐 방지)."""
     parts = []
     for i, m in enumerate(messages):
         role = m.get("role", "assistant")
@@ -54,7 +52,6 @@ def _render_messages_block(messages: List[Dict[str, Any]]):
         text = _linkify(_escape_html(text_raw))
         ts = _escape_html(m.get("ts", ""))
 
-        # 말풍선 + 타임스탬프 + 복사 버튼
         parts.append(
             f'<div class="chat-row {row}"><div class="chat-bubble {bub}">{text}</div></div>'
             f'<div class="timestamp {"ts-right" if role=="user" else "ts-left"}">{ts}</div>'
@@ -62,7 +59,6 @@ def _render_messages_block(messages: List[Dict[str, Any]]):
             f'data-text="{_escape_html(text_raw)}">📋 복사</button></div>'
         )
 
-        # 소스칩(assistant에만 표시)
         if role == "assistant":
             srcs = m.get("sources") or []
             if srcs:
@@ -71,23 +67,24 @@ def _render_messages_block(messages: List[Dict[str, Any]]):
                     md = (d.get("metadata") or {}) if isinstance(d, dict) else {}
                     title = md.get("title") or md.get("path") or md.get("source") or f"문서 {j}"
                     url = md.get("url")
-                    try:
-                        score = float(d.get("score", 0.0) or 0.0)
-                    except Exception:
-                        score = 0.0
+                    try: score = float(d.get("score", 0.0) or 0.0)
+                    except: score = 0.0
                     label = f"#{j} {title} · {score:.3f}"
-                    if url:
-                        chips.append(f'<span class="source-chip"><a href="{url}" target="_blank">{label}</a></span>')
-                    else:
-                        chips.append(f'<span class="source-chip">{label}</span>')
+                    chips.append(
+                        f'<span class="source-chip">'
+                        + (f'<a href="{url}" target="_blank">{label}</a>' if url else label)
+                        + '</span>'
+                    )
                 parts.append(f'<div class="src-row">{"".join(chips)}</div>')
 
     html = (
         '<div class="screen-shell">'
-        '<div class="screen-body">'
-        + "".join(parts) +
+        '<div class="screen-body" id="screen-body">'
+        + "".join(parts)
+        + '<div class="screen-spacer"></div>'   # Dock 높이만큼 빈칸
+        + '<div id="end-anchor"></div>'         # 자동 스크롤 앵커
         '</div></div>'
-        # 복사 버튼 이벤트 위임(문서에 한 번만)
+        # 복사 버튼 & 자동 스크롤
         '<script>(function(){'
         ' document.addEventListener("click", function(ev){'
         '   var b = ev.target.closest(".copy-btn"); if(!b) return;'
@@ -96,6 +93,18 @@ def _render_messages_block(messages: List[Dict[str, Any]]):
         '   document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");}catch(e){};'
         '   document.body.removeChild(ta);'
         ' }, true);'
+        ' try {'
+        '   var body = document.getElementById("screen-body");'
+        '   var end = document.getElementById("end-anchor");'
+        '   if (body && end) { end.scrollIntoView({behavior:"instant", block:"end"}); }'
+        '   if (body) {'
+        '     var mo = new MutationObserver(function(){'
+        '       var end2 = document.getElementById("end-anchor");'
+        '       if (end2) end2.scrollIntoView({behavior:"instant", block:"end"});'
+        '     });'
+        '     mo.observe(body, {childList:true, subtree:true});'
+        '   }'
+        ' } catch(e){}'
         '})();</script>'
     )
     st.markdown(html, unsafe_allow_html=True)
@@ -109,7 +118,10 @@ st.markdown("""
   color-scheme: light !important;
   --brand:#0b62e6; --bezel:#0b0e17; --screen:#ffffff;
   --line:#e6ebf4; --chip:#eef4ff; --text:#1f2a44;
+  --dock-h: 120px;      /* Dock 전체 높이(버튼+그림자 포함) */
 }
+html, body, [data-testid="stAppViewContainer"]{ height: 100%; }
+
 html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-testid="stSidebar"]{
   background: radial-gradient(1200px 700px at 50% 0, #f0f4ff 0%, #f6f8fb 45%, #eef1f6 100%) !important;
   color: var(--text) !important;
@@ -122,7 +134,7 @@ html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-tes
   border-radius: 30px !important;
   padding: 12px 14px 14px !important;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.65);
-  overflow: hidden; /* 바깥은 숨기고, 내부에서 스크롤 */
+  overflow: hidden;   /* 외부 숨기고 내부에서만 스크롤 */
 }
 
 /* 내부 스크롤 구조 */
@@ -141,10 +153,9 @@ html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-tes
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;            /* 여기서 스크롤 생성 */
-  padding: 8px 10px 120px;
-  padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
-  scroll-padding-bottom: 120px;
+  overflow-y: scroll;       /* 항상 스크롤 트랙 보이게 */
+  min-height: 0;            /* flex 컨텍스트 수축 방지 */
+  padding: 8px 10px 12px;   /* 하단 패딩은 spacer로 대체 */
   scrollbar-width: thin; 
   scrollbar-color: #c0c7d6 #f0f4ff;
 }
@@ -153,6 +164,12 @@ html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-tes
 .screen-body::-webkit-scrollbar-thumb{ background:#c0c7d6; border-radius:8px; }
 .screen-body::-webkit-scrollbar-thumb:hover{ background:#a0a7b6; }
 .screen-body{ overscroll-behavior: contain; }
+
+/* Dock과 겹치지 않도록 하단 여백 */
+.screen-spacer{
+  flex: 0 0 var(--dock-h);
+  height: var(--dock-h);
+}
 
 .stChatInputContainer{ display:none !important; }
 a{ color: var(--brand) !important; }
@@ -194,10 +211,11 @@ button, .stButton > button, .stDownloadButton > button{
 .source-chip a{ color:var(--brand); text-decoration:none; }
 .source-chip a:hover{ text-decoration:underline; }
 
-/* 입력 Dock: 절대 고정 (같은 큰 컨테이너 기준) */
+/* 입력 Dock: 절대 고정 */
 .chat-dock{
   position:absolute !important; left:50% !important; bottom:16px !important; transform:translateX(-50%);
-  width:92%; max-width:370px; z-index:20; filter: drop-shadow(0 10px 20px rgba(15,23,42,.18));
+  width:92%; max-width:370px; z-index:30;
+  filter: drop-shadow(0 10px 20px rgba(15,23,42,.18));
 }
 .chat-dock .dock-wrap{
   display:flex; gap:8px; align-items:center; background:#fff; border-radius:999px; padding:8px; border:1px solid #e6ebf4; box-shadow:0 8px 24px rgba(15,23,42,.10);
@@ -361,7 +379,7 @@ for i, label in enumerate(["우리금융지주 전망?", "호텔신라 실적 �
 st.divider()
 
 # =========================
-# 메시지 영역 (단일 블록 렌더) + 입력 Dock
+# 메시지 영역 (단일 블록) + 입력 Dock
 # =========================
 _render_messages_block(st.session_state.messages)
 
@@ -370,7 +388,7 @@ st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=
 with st.form("chat_form", clear_on_submit=True):
     c1, c2 = st.columns([1, 0.18])
     user_q = c1.text_input("질문을 입력하세요...", key="custom_input", label_visibility="collapsed")
-    submitted = c2.form_submit_button("➤", use_container_width=True)
+    submitted = c2.form_submit_button("➤", use_container_width=True, type="primary")
 st.markdown('</div></div>', unsafe_allow_html=True)
 
 # =========================
@@ -396,7 +414,7 @@ def run_answer(question: str):
 
     now2 = format_timestamp(datetime.now(TZ))
     st.session_state.messages.append({"role":"assistant","content":answer,"sources":main_sources,"ts":now2})
-    # Streamlit은 submit 후 전체 재실행하므로, 위에 있는 단일 블록 렌더가 최신 messages를 표시함.
+    # 재실행 후 위의 _render_messages_block가 최신 상태를 렌더합니다.
 
 if 'submitted' in locals() and submitted and user_q:
     run_answer(user_q)
