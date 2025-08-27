@@ -245,7 +245,7 @@ render_messages(st.session_state["messages"], messages_ph)
 with st.sidebar.expander("🧩 debug dump (붙여넣어 주시면 돼요)"):
     st.write("svc is None? ->", svc is None)
 
-    q = st.text_input("테스트 질의", "삼성전자 전망", key="dump_q")
+    q = st.text_input("테스트 질의", "호텔신라 주식에 대해 어떻게 생각해?", key="dump_q")
 
     # 1) svc.answer() 원형 출력
     if st.button("answer() 호출", key="dump_btn"):
