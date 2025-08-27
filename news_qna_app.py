@@ -205,7 +205,27 @@ button, .stButton>button, .stDownloadButton>button{
 }
 [data-testid="stHeader"]{ background:transparent !important; border:0 !important; }
 
-/* 보조 엘리먼트: 왼쪽 사이드 버튼 렌더 트릭 */
+
+/* 채팅 입력창을 '폰 스크린' 안쪽 하단에 배치 */
+.stChatInputContainer {
+  position: absolute !important;
+  bottom: 16px !important;
+  left: 50% !important;
+  transform: translateX(-50%);
+  width: 90% !important;
+  max-width: 360px !important;
+  margin: 0 auto !important;
+  z-index: 10;
+}
+
+/* 흰색 스크린 컨테이너가 기준이 되도록 relative 설정 */
+.block-container > :first-child {
+  position: relative;               /* 기준 박스 */
+  padding-bottom: 80px !important;  /* 입력창 자리 확보 */
+  border-radius: 30px !important;
+  background: #ffffff !important;
+  overflow: hidden;
+}
 </style>
 <div class="_sidebtnL"></div>
 """, unsafe_allow_html=True)
