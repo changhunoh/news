@@ -111,6 +111,33 @@ button, .stButton>button, .stDownloadButton>button{
   box-shadow:0 6px 14px rgba(15,23,42,.08);
 }
 
+/* --- 아바타를 버블 상단 정렬 --- */
+.bot-row{ 
+  align-items: flex-start !important;   /* 기존 flex-end를 어시스턴트에만 덮어쓰기 */
+}
+
+/* 아바타 위치: 왼쪽, '상단' 기준으로 붙임 */
+.bot-row .chat-bubble{
+  margin-left: 54px;                    /* 아바타 직경만큼 여백 */
+  margin-top: 2px;                      /* 살짝 내려 자연스럽게 */
+  position: relative;
+}
+.bot-row .chat-bubble::before{
+  content:"🧙‍♂️";
+  position:absolute;
+  left:-54px;                           /* 아바타가 왼쪽 밖으로 */
+  top:0;                                /* ← 기존 bottom:0 을 top:0 으로 */
+  bottom:auto;                          /* bottom 무효화 */
+  width:42px; height:42px;
+  border-radius:999px;
+  background:#fff; 
+  border:1px solid var(--line);
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px;
+  box-shadow:0 6px 14px rgba(15,23,42,.08);
+}
+
+
 /* 유저 버블(큰 파란 말풍선) */
 .user-bubble{
   background: var(--brand) !important; color:#fff !important; border:0 !important;
