@@ -28,12 +28,8 @@ st.markdown("""
 <style>
 :root{
   color-scheme: light !important;
-  --brand:#0b62e6;
-  --bezel:#0b0e17;
-  --screen:#ffffff;
-  --line:#e6ebf4;
-  --chip:#eef4ff;
-  --text:#1f2a44;
+  --brand:#0b62e6; --bezel:#0b0e17; --screen:#ffffff;
+  --line:#e6ebf4; --chip:#eef4ff; --text:#1f2a44;
 }
 
 /* 바깥 배경 */
@@ -42,16 +38,14 @@ html,body,[data-testid="stAppViewContainer"],section.main,.stMain,[data-testid="
   color: var(--text) !important;
 }
 
-
-
-/* 스크린(내용 래퍼) */
+/* ===== 스크린(흰 프레임) ===== */
 .block-container > :first-child{
   background: var(--screen) !important;
   border: 1px solid var(--line) !important;
   border-radius: 30px !important;
   padding: 12px 14px 14px !important;
   min-height: 740px;
-  position: relative;                /* 입력창 absolute 기준 */
+  position: relative !important;     /* 입력바 기준 */
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.65);
   overflow: hidden;
 }
@@ -79,73 +73,27 @@ button, .stButton>button, .stDownloadButton>button{
   box-shadow:0 4px 12px rgba(23,87,255,.08);
 }
 
-/* 채팅 버블 공통 */
+/* 채팅 버블 */
 .chat-row{ display:flex; margin:12px 0; align-items:flex-end; }
 .user-row{ justify-content:flex-end; }
-.bot-row{ justify-content:flex-start; }
+.bot-row{ justify-content:flex-start; align-items:flex-start !important; } /* 어시 아바타 상단정렬 */
 .chat-bubble{
-  max-width:86%;
-  padding:14px 16px;
-  border-radius:18px;
-  line-height:1.65;
-  font-size:16px;
-  background:#ffffff;
-  color:var(--text);
-  border:1px solid var(--line);
-  border-bottom-left-radius:8px;
-  box-shadow:0 10px 22px rgba(15,23,42,.08);
+  max-width:86%; padding:14px 16px; border-radius:18px; line-height:1.65; font-size:16px;
+  background:#ffffff; color:var(--text); border:1px solid var(--line);
+  border-bottom-left-radius:8px; box-shadow:0 10px 22px rgba(15,23,42,.08);
   white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word;
 }
-
-/* 아바타(어시스턴트) */
-.bot-row .chat-bubble{
-  position: relative; margin-left: 54px;
-}
+.bot-row .chat-bubble{ position:relative; margin-left:54px; margin-top:2px; }
 .bot-row .chat-bubble::before{
-  content:"🧙‍♂️";
-  position:absolute; left:-54px; bottom:0;
-  width:42px; height:42px; border-radius:999px;
-  background:#fff; border:1px solid var(--line);
-  display:flex; align-items:center; justify-content:center;
-  font-size:20px;
+  content:"🧙‍♂️"; position:absolute; left:-54px; top:0; bottom:auto;
+  width:42px; height:42px; border-radius:999px; background:#fff; border:1px solid var(--line);
+  display:flex; align-items:center; justify-content:center; font-size:20px;
   box-shadow:0 6px 14px rgba(15,23,42,.08);
 }
-
-/* --- 아바타를 버블 상단 정렬 --- */
-.bot-row{ 
-  align-items: flex-start !important;   /* 기존 flex-end를 어시스턴트에만 덮어쓰기 */
-}
-
-/* 아바타 위치: 왼쪽, '상단' 기준으로 붙임 */
-.bot-row .chat-bubble{
-  margin-left: 54px;                    /* 아바타 직경만큼 여백 */
-  margin-top: 2px;                      /* 살짝 내려 자연스럽게 */
-  position: relative;
-}
-.bot-row .chat-bubble::before{
-  content:"🧙‍♂️";
-  position:absolute;
-  left:-54px;                           /* 아바타가 왼쪽 밖으로 */
-  top:0;                                /* ← 기존 bottom:0 을 top:0 으로 */
-  bottom:auto;                          /* bottom 무효화 */
-  width:42px; height:42px;
-  border-radius:999px;
-  background:#fff; 
-  border:1px solid var(--line);
-  display:flex; align-items:center; justify-content:center;
-  font-size:20px;
-  box-shadow:0 6px 14px rgba(15,23,42,.08);
-}
-
-
-/* 유저 버블(큰 파란 말풍선) */
 .user-bubble{
   background: var(--brand) !important; color:#fff !important; border:0 !important;
   border-bottom-right-radius:8px; border-top-left-radius:18px;
-  box-shadow:0 10px 28px rgba(11,98,230,.26);
-  font-weight:700;
-  letter-spacing:.2px;
-  padding:16px 18px;
+  box-shadow:0 10px 28px rgba(11,98,230,.26); font-weight:700; letter-spacing:.2px; padding:16px 18px;
 }
 
 /* 타임스탬프 / 액션바 / 출처 칩 */
@@ -164,38 +112,37 @@ button, .stButton>button, .stDownloadButton>button{
 .source-chip a{ color:var(--brand); text-decoration:none; }
 .source-chip a:hover{ text-decoration:underline; }
 
-/* ===== 입력창을 '스크린' 안으로 띄우기 ===== */
-.stChatInputContainer{
-  position: absolute !important;
-  left: 50% !important; bottom: 16px !important;
-  transform: translateX(-50%);
-  width: 92% !important; max-width: 370px !important;
-  margin: 0 !important; z-index: 20;
-  filter: drop-shadow(0 10px 20px rgba(15,23,42,.25));
+/* ===== 기본 chat_input 숨김 (우린 커스텀 사용) ===== */
+.stChatInputContainer{ display:none !important; }
+
+/* ===== 스크롤 영역 + 프레임 안 하단 고정 입력바 ===== */
+.screen-body{
+  display:flex; flex-direction:column;
+  max-height: calc(100vh - 200px);  /* 필요시 190~240px로 미세조정 */
+  overflow:auto;
+  padding: 8px 10px 96px;           /* 입력바 공간 */
 }
-.stChatInputContainer > div{  /* 전체 캡슐 */
-  background:#fff !important; border:0 !important; border-radius:999px !important;
-  padding:8px 8px !important;
-  box-shadow: 0 8px 24px rgba(15,23,42,.14), 0 2px 8px rgba(15,23,42,.10) !important;
+.chat-dock{
+  position: sticky; bottom: 12px; z-index: 5;
+  margin-top: auto; width: 100%;
+  display:flex; justify-content:center;
+  filter: drop-shadow(0 10px 18px rgba(15,23,42,.15));
 }
-.stChatInputContainer textarea{
-  background: transparent !important; color: var(--text) !important;
-  border:0 !important; outline:0 !important;
-  border-radius:999px !important; padding: 12px 14px !important;
-  min-height: 44px !important; max-height: 100px !important;
-  font-size:15px !important;
+.chat-dock .dock-wrap{
+  width: 92%; max-width: 370px;
+  display:flex; gap:8px; align-items:center;
+  background:#ffffff; border-radius:999px; padding:8px;
+  border:1px solid #e6ebf4; box-shadow: 0 8px 20px rgba(15,23,42,.10);
 }
-.stChatInputContainer div[data-baseweb="button"] button,
-.stChatInputContainer button{
+.chat-dock .stTextInput>div>div{ background:transparent !important; border:0 !important; padding:0 !important; }
+.chat-dock input{ height:44px !important; padding:0 12px !important; font-size:15px !important; }
+.chat-dock .send-btn>button{
   width:40px; height:40px; border-radius:999px !important;
-  background: #e6efff !important; border:0 !important; color: var(--brand) !important;
-  box-shadow: inset 0 0 0 1px #d8e6ff;
+  background:#e6efff !important; color:#0b62e6 !important; border:0 !important;
+  box-shadow: inset 0 0 0 1px #d8e6ff; font-weight:800;
 }
 
-/* 입력창 공간 확보(겹침 방지) */
-.block-container > :first-child{ padding-bottom: 96px !important; }
-
-/* 프리셋 칩 간격/폰 느낌 */
+/* 프리셋 칩 */
 .stButton > button{ font-weight:800 !important; }
 .stButton{ margin: 2px 4px; }
 
@@ -204,45 +151,9 @@ button, .stButton>button, .stDownloadButton>button{
   .block-container{ max-width: 94vw; }
 }
 [data-testid="stHeader"]{ background:transparent !important; border:0 !important; }
-
-
-/* 기본 chat_input 아예 숨김 */
-.stChatInputContainer{ display:none !important; }
-
-/* 커스텀 입력바를 스크린 하단에 고정할 자리 */
-.block-container > :first-child{
-  position: relative !important;
-  padding-bottom: 110px !important;  /* 입력바 공간 */
-}
-
-/* 커스텀 입력바 스타일 */
-.chat-dock{
-  position:absolute; left:50%; bottom:16px; transform:translateX(-50%);
-  width:92%; max-width:370px; z-index:20;
-  filter: drop-shadow(0 10px 20px rgba(15,23,42,.18));
-}
-.chat-dock .dock-wrap{
-  display:flex; gap:8px; align-items:center;
-  background:#ffffff; border-radius:999px; padding:8px; border:1px solid #e6ebf4;
-  box-shadow: 0 8px 24px rgba(15,23,42,.10);
-}
-.chat-dock .stTextInput>div>div{
-  background:transparent !important; border:0 !important;
-  border-radius:999px !important; padding:0 !important;
-}
-.chat-dock input{
-  height:44px !important; padding:0 12px !important; font-size:15px !important;
-}
-.chat-dock .send-btn>button{
-  width:40px; height:40px; border-radius:999px !important;
-  background:#e6efff !important; color:#0b62e6 !important; border:0 !important;
-  box-shadow: inset 0 0 0 1px #d8e6ff;
-  font-weight:800;
-}
-
 </style>
-<div class="_sidebtnL"></div>
 """, unsafe_allow_html=True)
+
 
 
 # =========================
@@ -514,15 +425,26 @@ q = st.session_state._preset  # 프리셋을 먼저 반영 (버튼 클릭 시)
 submitted = False
 user_q = None
 
-# 커스텀 입력바 (스크린 내부 하단 고정)
-dock = st.container()
-with dock:
-    st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
-    with st.form("chat_form", clear_on_submit=True):
-        c1, c2 = st.columns([1, 0.18])
-        user_q = c1.text_input("질문을 입력하세요...", key="custom_input", label_visibility="collapsed")
-        submitted = c2.form_submit_button("➤", use_container_width=True)
-    st.markdown('</div></div>', unsafe_allow_html=True)
+# ===== 스크롤 영역(흰 프레임 내부) 시작 =====
+st.markdown('<div class="screen-body">', unsafe_allow_html=True)
+
+# 대화 히스토리 렌더
+for i, m in enumerate(st.session_state.messages):
+    _render_message(m["content"], m["role"], m.get("ts",""))
+    if m["role"]=="assistant":
+        _copy_button(m["content"], key=f"msg-{i}")
+        if m.get("sources"): _render_sources_inline(m["sources"])
+
+# ===== 프레임 안 하단: 커스텀 입력바(sticky) =====
+st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
+with st.form("chat_form", clear_on_submit=True):
+    c1, c2 = st.columns([1, 0.18])
+    user_q = c1.text_input("질문을 입력하세요...", key="custom_input", label_visibility="collapsed")
+    submitted = c2.form_submit_button("➤", use_container_width=True)
+st.markdown('</div></div>', unsafe_allow_html=True)
+
+# ===== 스크롤 영역 끝 =====
+st.markdown('</div>', unsafe_allow_html=True)
 
 # 제출 처리
 if q:  # 프리셋이 있으면 우선 실행
@@ -530,9 +452,3 @@ if q:  # 프리셋이 있으면 우선 실행
     st.session_state._preset = None
 elif submitted and user_q:
     run_answer(user_q)
-
-# “다시 생성” 버튼 (그대로 유지 가능)
-if len(st.session_state.messages) >= 2:
-    last_user = next((m["content"] for m in reversed(st.session_state.messages) if m["role"]=="user"), None)
-    if last_user and st.button("🔁 답변 다시 생성", use_container_width=True):
-        run_answer(last_user)
