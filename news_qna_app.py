@@ -118,14 +118,19 @@ st.markdown("""
   color-scheme: light !important;
   --brand:#0b62e6; --bezel:#0b0e17; --screen:#ffffff;
   --line:#e6ebf4; --chip:#eef4ff; --text:#1f2a44;
-  --dock-h: 120px;      /* Dock 전체 높이(버튼+그림자 포함) */
+  --dock-h: 140px; /* 입력 Dock 전체 높이(그림자 포함) */
 }
+
+/* 최상위 높이 보장 */
 html, body, [data-testid="stAppViewContainer"]{ height: 100%; }
 
+/* 기본 배경/색 */
 html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-testid="stSidebar"]{
   background: radial-gradient(1200px 700px at 50% 0, #f0f4ff 0%, #f6f8fb 45%, #eef1f6 100%) !important;
   color: var(--text) !important;
 }
+
+/* 카드 컨테이너(첫 요소) — 내부를 flex column으로 만들어 남은 높이를 자식이 쓰도록 */
 .block-container > :first-child{
   position: relative !important;
   height: clamp(620px, 82vh, 860px);
@@ -134,29 +139,42 @@ html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-tes
   border-radius: 30px !important;
   padding: 12px 14px 14px !important;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.65);
-  overflow: hidden;   /* 외부 숨기고 내부에서만 스크롤 */
-}
-
-/* 내부 스크롤 구조 */
-.screen-shell{
-  position: relative;
-  height: 100%;
-  display: flex;
+  overflow: hidden;                 /* 외부는 숨기고 */
+  display: flex;                    /* 내부는 flex로 */
   flex-direction: column;
 }
-/* :has 지원 브라우저에서 부모 element-container 높이 보장 */
+
+/* Streamlit이 끼우는 래퍼(element-container)도 flex로 확장 */
+.block-container > :first-child > div{
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* 내부 스크롤 구조의 부모 래퍼 */
+.screen-shell{
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;   /* 남은 높이 차지 */
+  min-height: 0;    /* 자식 스크롤 수축 방지 */
+}
+
+/* :has 지원 브라우저에서 부모 element-container 높이 보장(보조 규칙) */
 .block-container > :first-child .element-container:has(.screen-shell){
   height: 100%;
 }
 
+/* 실제 스크롤 되는 영역 */
 .screen-body{
   flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  overflow-y: scroll;       /* 항상 스크롤 트랙 보이게 */
-  min-height: 0;            /* flex 컨텍스트 수축 방지 */
-  padding: 8px 10px 12px;   /* 하단 패딩은 spacer로 대체 */
-  scrollbar-width: thin; 
+  min-height: 0;
+  overflow-y: auto;                 /* 내부 스크롤 생성 */
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 10px 12px;           /* 하단 여백은 spacer가 처리 */
+  scrollbar-width: thin;
   scrollbar-color: #c0c7d6 #f0f4ff;
 }
 .screen-body::-webkit-scrollbar{ width:8px; }
@@ -165,39 +183,75 @@ html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-tes
 .screen-body::-webkit-scrollbar-thumb:hover{ background:#a0a7b6; }
 .screen-body{ overscroll-behavior: contain; }
 
-/* Dock과 겹치지 않도록 하단 여백 */
+/* Dock과 겹치지 않도록 하단 빈칸(HTML에 <div class="screen-spacer"></div> 포함 필요) */
 .screen-spacer{
   flex: 0 0 var(--dock-h);
   height: var(--dock-h);
 }
 
+/* 기본 컴포넌트 스타일 */
 .stChatInputContainer{ display:none !important; }
 a{ color: var(--brand) !important; }
 hr{ border:0; border-top:1px solid var(--line) !important; }
+
 button, .stButton > button, .stDownloadButton > button{
-  background: var(--chip) !important; border:1px solid #dce7ff !important; color:var(--brand) !important;
-  border-radius:999px !important; font-weight:700 !important; padding:8px 14px !important; min-height:auto !important; line-height:1.1 !important;
+  background: var(--chip) !important;
+  border:1px solid #dce7ff !important;
+  color:var(--brand) !important;
+  border-radius:999px !important;
+  font-weight:700 !important;
+  padding:8px 14px !important;
+  min-height:auto !important;
+  line-height:1.1 !important;
 }
-.st-expander, .st-expander div[role="button"]{ background:#fff !important; border:1px solid var(--line) !important; color:var(--text) !important; }
+
+.st-expander, .st-expander div[role="button"]{
+  background:#fff !important;
+  border:1px solid var(--line) !important;
+  color:var(--text) !important;
+}
+
+/* 헤더/타이틀 */
 .chat-header{ display:flex; align-items:center; justify-content:space-between; margin:8px 6px 12px; }
 .chat-title{ font-size:20px; font-weight:900; color:var(--text); letter-spacing:.2px; }
-.reset-btn > button{ width:38px; height:38px; border-radius:999px !important; background:var(--chip) !important; color:var(--brand) !important; border:1px solid #dce7ff !important; box-shadow:0 4px 12px rgba(23,87,255,.08); }
+.reset-btn > button{
+  width:38px; height:38px; border-radius:999px !important;
+  background:var(--chip) !important; color:var(--brand) !important;
+  border:1px solid #dce7ff !important; box-shadow:0 4px 12px rgba(23,87,255,.08);
+}
+
+/* 채팅 말풍선 */
 .chat-row{ display:flex; margin:12px 0; align-items:flex-end; }
 .user-row{ justify-content:flex-end; }
 .bot-row{ justify-content:flex-start; align-items:flex-start !important; }
+
 .chat-bubble{
-  max-width:86%; padding:14px 16px; border-radius:18px; line-height:1.65; font-size:16px; background:#ffffff; color:var(--text);
-  border:1px solid var(--line); border-bottom-left-radius:8px; box-shadow:0 10px 22px rgba(15,23,42,.08); white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word;
+  max-width:86%;
+  padding:14px 16px;
+  border-radius:18px;
+  line-height:1.65;
+  font-size:16px;
+  background:#ffffff;
+  color:var(--text);
+  border:1px solid var(--line);
+  border-bottom-left-radius:8px;
+  box-shadow:0 10px 22px rgba(15,23,42,.08);
+  white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word;
 }
 .bot-row .chat-bubble{ position:relative; margin-left:54px; margin-top:2px; }
 .bot-row .chat-bubble::before{
-  content:"🧙‍♂️"; position:absolute; left:-54px; top:0; width:42px; height:42px; border-radius:999px; background:#fff; border:1px solid var(--line);
-  display:flex; align-items:center; justify-content:center; font-size:20px; box-shadow:0 6px 14px rgba(15,23,42,.08);
+  content:"🧙‍♂️";
+  position:absolute; left:-54px; top:0; width:42px; height:42px; border-radius:999px;
+  background:#fff; border:1px solid var(--line);
+  display:flex; align-items:center; justify-content:center; font-size:20px;
+  box-shadow:0 6px 14px rgba(15,23,42,.08);
 }
 .user-bubble{
-  background:var(--brand) !important; color:#fff !important; border:0 !important; border-bottom-right-radius:8px;
-  box-shadow:0 10px 28px rgba(11,98,230,.26); font-weight:700; letter-spacing:.2px; padding:16px 18px;
+  background:var(--brand) !important; color:#fff !important; border:0 !important;
+  border-bottom-right-radius:8px; box-shadow:0 10px 28px rgba(11,98,230,.26);
+  font-weight:700; letter-spacing:.2px; padding:16px 18px;
 }
+
 .timestamp{ font-size:12px; color:#6b7280; margin:4px 6px; }
 .ts-left{ text-align:left; } .ts-right{ text-align:right; }
 
@@ -211,21 +265,27 @@ button, .stButton > button, .stDownloadButton > button{
 .source-chip a{ color:var(--brand); text-decoration:none; }
 .source-chip a:hover{ text-decoration:underline; }
 
-/* 입력 Dock: 절대 고정 */
+/* 입력 Dock(절대 고정) */
 .chat-dock{
-  position:absolute !important; left:50% !important; bottom:16px !important; transform:translateX(-50%);
+  position:absolute !important;
+  left:50% !important; bottom:16px !important; transform:translateX(-50%);
   width:92%; max-width:370px; z-index:30;
   filter: drop-shadow(0 10px 20px rgba(15,23,42,.18));
 }
 .chat-dock .dock-wrap{
-  display:flex; gap:8px; align-items:center; background:#fff; border-radius:999px; padding:8px; border:1px solid #e6ebf4; box-shadow:0 8px 24px rgba(15,23,42,.10);
+  display:flex; gap:8px; align-items:center;
+  background:#fff; border-radius:999px; padding:8px;
+  border:1px solid #e6ebf4; box-shadow:0 8px 24px rgba(15,23,42,.10);
 }
 .chat-dock .stTextInput > div > div{ background:transparent !important; border:0 !important; padding:0 !important; }
 .chat-dock input{ height:44px !important; padding:0 12px !important; font-size:15px !important; }
 .chat-dock .send-btn > button{
-  width:40px; height:40px; border-radius:999px !important; background:#e6efff !important; color:#0b62e6 !important; border:0 !important; box-shadow:inset 0 0 0 1px #d8e6ff; font-weight:800;
+  width:40px; height:40px; border-radius:999px !important;
+  background:#e6efff !important; color:#0b62e6 !important; border:0 !important;
+  box-shadow:inset 0 0 0 1px #d8e6ff; font-weight:800;
 }
 
+/* 반응형 */
 @media (max-width: 480px){
   .block-container > :first-child{ height: clamp(560px, 86vh, 820px); }
   .block-container{ max-width: 94vw; }
@@ -237,19 +297,6 @@ button, .stButton > button, .stDownloadButton > button{
 </style>
 """, unsafe_allow_html=True)
 
-# :has 미지원 브라우저 폴백 (부모 element-container 높이 100%)
-st.markdown("""
-<script>
-(function(){
-  document.querySelectorAll('.screen-shell').forEach(function(shell){
-    var parent = shell.closest('.element-container') || shell.parentElement;
-    if (parent && (getComputedStyle(parent).height === 'auto' || !parent.style.height)) {
-      parent.style.height = '100%';
-    }
-  });
-})();
-</script>
-""", unsafe_allow_html=True)
 
 # =========================
 # 백엔드 서비스 (선택)
