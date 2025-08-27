@@ -121,21 +121,15 @@ def run_answer(question: str):
         raw_result = {"answer": ans, "source_documents": []}
     # 디버그 패널
     if debug:
-        with st.expander("🔎 RAG 디버그 (원시 결과/컨텍스트/스코어)"):
-            st.write("raw_result keys:", list(raw_result.keys()))
+        with st.expander("RAG raw result"):
+            st.write("result keys:", list(result.keys()))
             st.write("num sources:", len(sources))
             for i, d in enumerate(sources, 1):
-                if isinstance(d, dict):
-                    md = d.get("metadata", {})
-                    score = md.get("score", d.get("score", None))
-                    title = md.get("title") or md.get("path") or md.get("source") or f"문서 {i}"
-                    url = md.get("url")
-                    st.markdown(f"**#{i} {title}**  | score={score}")
-                    if url: st.markdown(f"[원문]({url})")
-                    txt = d.get("content") or d.get("page_content") or ""
-                    st.code((txt[:800] + (" …" if len(txt)>800 else "")))
-                else:
-                    st.write(d)
+                title, url = _extract_title_url(d)
+                score = _extract_score(d)
+                st.markdown(f"**#{i} {title}** | score={score}")
+                if url: st.markdown(f"[원문]({url})")
+                st.code(_extract_text(d)[:600])
 
     # 어시스턴트 메시지 (근거 포함)
     st.session_state["messages"].append({
