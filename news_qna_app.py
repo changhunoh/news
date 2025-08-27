@@ -112,17 +112,9 @@ button[kind="secondaryFormSubmit"] {
 button[kind="secondaryFormSubmit"]:hover {
   background:#094fc0 !important;
 }
-/* 기본 폼 박스 제거 */
-div[data-testid="stForm"] {
-  border: none !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  padding: 0 !important;
-}
+
 </style>
 """, unsafe_allow_html=True)
-
-
 
 # ------------------------
 # 백엔드 서비스
@@ -214,24 +206,37 @@ messages_ph = st.empty()
 # ------------------------
 # ---- 채팅폼 (제출 먼저 처리 → 같은 런에서 두 번 렌더) ----
 
+# --- Dock 입력 영역 (그대로 사용) ---
 st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
-with st.form("chat_form", clear_on_submit=True):
-    c1, c2 = st.columns([1, 0.15])
-    user_q = c1.text_input("질문을 입력하세요...", key="chat_input", label_visibility="collapsed")
-    submitted = c2.form_submit_button("➤", use_container_width=True)
+c1, c2 = st.columns([1, 0.14])
+user_q = c1.text_input(
+    "질문을 입력하세요...",
+    key="chat_input",
+    label_visibility="collapsed",
+    on_change=_submit_on_enter,            # ← Enter 전송
+    placeholder="예) 삼성전자 전망 알려줘"
+)
+clicked = c2.button("➤", use_container_width=True, disabled=st.session_state.is_generating)
 st.markdown('</div></div>', unsafe_allow_html=True)
 
-if submitted and user_q.strip():
+# --- 전송 트리거 & 입력값은 'state' 기준으로 ---
+submitted = clicked or st.session_state.send_flag
+final_q = (st.session_state.chat_input or "").strip()
+
+if submitted and final_q and not st.session_state.is_generating:
+    st.session_state.is_generating = True
+    st.session_state.send_flag = False      # ← 소비했으니 리셋
+
     now = fmt_ts(datetime.now(TZ))
 
-    # 1) 유저 말풍선 추가
+    # 1) 유저 말풍선
     st.session_state["messages"].append({
         "role": "user",
-        "content": user_q.strip(),
+        "content": final_q,
         "ts": now
     })
 
-    # 2) assistant pending 말풍선 추가
+    # 2) assistant pending 말풍선
     st.session_state["messages"].append({
         "role": "assistant",
         "content": "",
@@ -243,11 +248,11 @@ if submitted and user_q.strip():
     # 3) 첫 렌더(펜딩 보여주기)
     render_messages(st.session_state["messages"], messages_ph)
 
-    # 4) 생성 실행 (동기)
+    # 4) 생성 실행
     sources, ans, result = [], "관련 정보를 찾을 수 없습니다.", {}
     try:
         if svc:
-            result = svc.answer(user_q.strip()) or {}
+            result = svc.answer(final_q) or {}
             ans = (
                 result.get("answer") or result.get("output_text") or
                 result.get("output")  or result.get("content") or ""
@@ -258,7 +263,7 @@ if submitted and user_q.strip():
                 result.get("docs") or []
             )
         else:
-            ans = f"데모 응답: '{user_q.strip()}'에 대한 분석 결과는 준비 중입니다."
+            ans = f"데모 응답: '{final_q}'에 대한 분석 결과는 준비 중입니다."
     except Exception as e:
         ans = f"오류 발생: {e}"
 
@@ -271,6 +276,9 @@ if submitted and user_q.strip():
     }
     render_messages(st.session_state["messages"], messages_ph)
 
+    # 6) 입력창 초기화 및 상태 해제
+    st.session_state.chat_input = ""        # ← input 비우기
+    st.session_state.is_generating = False
 # ------------------------
 # 마지막 안전 렌더
 # ------------------------
