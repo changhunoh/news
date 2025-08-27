@@ -317,7 +317,7 @@ for i, m in enumerate(st.session_state.messages):
             _render_sources_inline(m["sources"])
 
 # 입력바
-st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
+ ст.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
 with st.form("chat_form", clear_on_submit=True):
     c1, c2 = st.columns([1, 0.18])
     user_q = c1.text_input("질문을 입력하세요...", key="custom_input", label_visibility="collapsed")
