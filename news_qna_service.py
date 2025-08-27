@@ -96,6 +96,20 @@ class NewsQnAService:
         return self.embed_model.get_embeddings(inp, output_dimensionality=self.embed_dim)[0].values
 
     # ---------- RAG steps ----------
+    def _extract_text_from_payload(payload: dict) -> str:
+        """
+        payload["doc"]가 문자열이거나, dict(예: {"content": "...", "text": "...", ...})일 수 있으니 모두 커버
+        """
+        if not isinstance(payload, dict):
+            return ""
+        doc = payload.get("doc")
+        if isinstance(doc, str):
+            return doc
+        if isinstance(doc, dict):
+            # 흔한 텍스트 키들 우선순위
+            return doc.get("content") or doc.get("text") or doc.get("page_content") or ""
+        return ""
+    
     def retrieve(self, question: str) -> List[Dict[str, Any]]:
         qv = self._embed_query(question)
         hits = self.qc.search(
@@ -105,14 +119,44 @@ class NewsQnAService:
             with_payload=True,
             with_vectors=False,
         )
+    
+        # (선택) distance 모드 파악
+        dist_mode = getattr(self, "_dist_mode", None)
+        if dist_mode is None:
+            try:
+                info = self.qc.get_collection(self.collection)
+                params = getattr(info.config, "params", None) or getattr(info, "config", None)
+                vectors = getattr(params, "vectors", None)
+                dist_mode = str(getattr(vectors, "distance", "")).lower() if vectors else ""
+            except Exception:
+                dist_mode = ""
+            self._dist_mode = dist_mode
+    
         docs: List[Dict[str, Any]] = []
         for h in hits:
             payload = h.payload or {}
+            text = _extract_text_from_payload(payload)
+    
+            # 메타데이터: payload["metadata"] 최우선, 없으면 payload에서 doc 제외
+            md = {}
+            if isinstance(payload.get("metadata"), dict):
+                md = dict(payload["metadata"])
+            else:
+                md = {k: v for k, v in payload.items() if k not in ("doc", "metadata")}
+    
+            raw = getattr(h, "score", None)  # Qdrant는 보통 distance를 score로 반환
+            distance = float(raw) if raw is not None else None
+            similarity = None
+            if distance is not None and "cosine" in dist_mode:
+                similarity = 1.0 - distance
+    
             docs.append({
-                "id": str(h.id),
-                "content": payload.get("text", ""),
-                "metadata": {k: v for k, v in payload.items() if k != "text"},
-                "score": float(getattr(h, "score", 1.0)),
+                "id": str(getattr(h, "id", "")),
+                "content": text,            # ✅ 이제 doc 기반 본문
+                "metadata": md,             # ✅ metadata 그대로
+                "score": similarity if similarity is not None else (float(raw) if raw is not None else None),
+                "distance": distance,
+                "distance_mode": dist_mode,
             })
         return docs
 
