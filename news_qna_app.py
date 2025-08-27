@@ -43,18 +43,6 @@ html,body,[data-testid="stAppViewContainer"],section.main,.stMain,[data-testid="
 }
 
 
-/* 사이드 버튼(왼쪽/오른쪽) */
-.block-container::after{
-  content:""; position:absolute; right:-10px; top:220px;
-  width:54px; height:54px; background:#dee6f3; border-radius:999px; border:2px solid #111;
-  box-shadow: 0 8px 18px rgba(15,18,32,.18);
-}
-.block-container > ._sidebtnL{
-  content:""; position:absolute; left:-10px; top:160px;
-  width:54px; height:54px; background:#dee6f3; border-radius:999px; border:2px solid #111;
-  box-shadow: 0 8px 18px rgba(15,18,32,.18);
-}
-
 /* 스크린(내용 래퍼) */
 .block-container > :first-child{
   background: var(--screen) !important;
