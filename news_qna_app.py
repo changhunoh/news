@@ -166,6 +166,38 @@ st.markdown("""
 
 /* 타임스탬프 */
 .time{ font-size:11px; color:#6b7280; margin-top:4px; }
+
+.bubble{ position:relative; border-radius:16px; }
+
+.bubble.bot{
+  background:#f6f8fb;
+  border:1px solid #eef2f7;
+  box-shadow: 0 6px 16px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.65);
+}
+
+.bubble.user{
+  background:#0b62e6;
+  border:0;
+  box-shadow: 0 10px 24px rgba(11,98,230,.28);
+}
+
+/* 선택: 아주 미묘한 hover 입체감 */
+.bubble:hover{ transform: translateY(-1px); transition: transform .12s ease; }
+
+/* 선택: 꼬리(보톡스 형태) */
+.bubble.bot::after{
+  content:""; position:absolute; left:-6px; top:10px;
+  width:12px; height:12px; background:#f6f8fb;
+  border-left:1px solid #eef2f7; border-bottom:1px solid #eef2f7;
+  transform: rotate(45deg); border-bottom-left-radius:3px;
+}
+
+.bubble.user::after{
+  content:""; position:absolute; right:-6px; top:10px;
+  width:12px; height:12px; background:#0b62e6;
+  box-shadow: 2px 6px 12px rgba(11,98,230,.22);
+  transform: rotate(45deg); border-top-right-radius:3px;
+}
 </style>
 """, unsafe_allow_html=True)
 
