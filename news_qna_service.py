@@ -7,7 +7,7 @@ from qdrant_client import QdrantClient
 from google.oauth2 import service_account
 import streamlit as st  # Streamlit secrets 사용 시
 from dotenv import load_dotenv
-from langgraph import StateGraph  # Add this line
+from langgraph.graph import StateGraph, START, END
 
 # 🔐 Streamlit secrets → 서비스계정 크레덴셜
 sa_info = None
