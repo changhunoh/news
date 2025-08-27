@@ -81,8 +81,50 @@ st.markdown("""
 .typing-dot:nth-child(2){ animation-delay:.15s; }
 .typing-dot:nth-child(3){ animation-delay:.3s; }
 @keyframes typingDot{ 0%,80%,100%{transform:translateY(0);opacity:.5} 40%{transform:translateY(-4px);opacity:1} }
+
+/*채팅창*/
+.chat-dock{
+  position: fixed;
+  bottom: 16px; left: 50%; transform: translateX(-50%);
+  width: 92%; max-width: 720px; z-index: 100;
+}
+.dock-wrap{
+  display: flex; gap: 8px; align-items: center;
+  background: #fff; border-radius: 999px;
+  padding: 8px; border: 1px solid #e5e7eb;
+  box-shadow: 0 6px 18px rgba(0,0,0,.08);
+}
+#chat_input {
+  border:0 !important;
+  flex: 1;
+  padding: 12px 16px !important;
+  font-size: 15px !important;
+  background: transparent !important;
+}
+#chat_input:focus { outline:none !important; }
+button[kind="secondaryFormSubmit"] {
+  border-radius: 999px !important;
+  background:#0b62e6 !important; color:#fff !important;
+  font-size:18px !important; font-weight:700;
+  width:42px; height:42px;
+  display:flex; align-items:center; justify-content:center;
+}
+button[kind="secondaryFormSubmit"]:hover {
+  background:#094fc0 !important;
+}
 </style>
 """, unsafe_allow_html=True)
+
+# ------------------------
+# 채팅창 입력
+# ------------------------
+
+st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
+with st.form("chat_form", clear_on_submit=True):
+    c1, c2 = st.columns([1, 0.15])
+    user_q = c1.text_input("질문을 입력하세요...", key="chat_input", label_visibility="collapsed")
+    submitted = c2.form_submit_button("➤", use_container_width=True)
+st.markdown('</div></div>', unsafe_allow_html=True)
 
 # ------------------------
 # 백엔드 서비스
