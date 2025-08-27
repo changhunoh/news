@@ -155,3 +155,26 @@ if submitted and user_q.strip():
 
 # 마지막 안전 렌더 (최초 로드/새로고침용)
 render_messages(st.session_state["messages"], messages_ph)
+
+
+with st.sidebar.expander("🧩 debug dump (붙여넣어 주시면 돼요)"):
+    q = st.text_input("테스트 질의", "삼성전자 전망")
+    if st.button("answer() 호출"):
+        try:
+            res = svc.answer(q) if svc else {}
+        except Exception as e:
+            res = {"error": str(e)}
+        # 키/첫번째 소스만 요약 출력
+        st.write("keys:", list(res.keys()))
+        srcs = (res.get("source_documents") or res.get("sources") or res.get("docs") or [])
+        st.write("num sources:", len(srcs))
+        if srcs:
+            s0 = srcs[0]
+            st.write("source[0] keys:", list(s0.keys()) if isinstance(s0, dict) else type(s0))
+            md = (s0.get("metadata") or {}) if isinstance(s0, dict) else {}
+            st.write("metadata keys:", list(md.keys()))
+            # 안전 텍스트 추출
+            txt = (s0.get("content") or s0.get("page_content") or s0.get("text")
+                   or (s0.get("metadata") or {}).get("content") or "")
+            st.code((txt[:600] + (" …" if len(txt) > 600 else "")))
+
