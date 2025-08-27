@@ -91,78 +91,59 @@ rag = st.session_state.rag
 ASSISTANT_AVATAR = "🧙‍♂️"
 USER_AVATAR = "🧑‍💼"
 
-# ──────────────────────────────────────────────────────────────────
-# 메시지 렌더링
-#   - st.chat_message를 쓰면 스크롤 자동 하단 고정이 자연스럽게 됩니다.
-#   - 근거 문서는 assistant 메시지 직후 expander로 노출
-# ──────────────────────────────────────────────────────────────────
+st.markdown(
+    """
+    <style>
+      .bubble { padding:12px 16px; border-radius:16px; margin:6px 0; max-width:80%;
+                box-shadow:0 1px 2px rgba(0,0,0,.06); word-wrap:break-word; font-size:15px; }
+      .bubble.assistant { background:#F4F6F9; color:#111; border-top-left-radius:6px; }
+      .bubble.user      { background:#0b46ff; color:#fff; border-top-right-radius:6px; }
+      .bubble-ts { font-size:11px; color:#8b8b8b; margin-top:2px; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+def render_assistant(text, ts=None, sources=None):
+    with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
+        st.markdown(f'<div class="bubble assistant">{text}</div>', unsafe_allow_html=True)
+        if ts: st.markdown(f'<div class="bubble-ts">{ts}</div>', unsafe_allow_html=True)
+        if sources:
+            with st.expander("📰 근거 보기"):
+                for i, d in enumerate(sources, 1):
+                    meta = d.get("metadata", {})
+                    title = meta.get("title") or meta.get("news_title") or meta.get("file_name") or "문서"
+                    url = meta.get("url") or meta.get("link")
+                    score = d.get("score")
+                    st.markdown(f"**{i}. {title}**  \n- score: `{score:.4f}`" if score is not None else f"**{i}. {title}**")
+                    if url: st.markdown(f"- 링크: {url}")
+                    if meta:
+                        keep = {k: meta[k] for k in list(meta)[:6]}
+                        st.code(keep, language="json")
+
+def render_user(text, ts=None):
+    with st.chat_message("user", avatar=USER_AVATAR):
+        st.markdown(f'<div class="bubble user">{text}</div>', unsafe_allow_html=True)
+        if ts: st.markdown(f'<div class="bubble-ts">{ts}</div>', unsafe_allow_html=True)
+
+# 메시지 출력
 for msg in st.session_state.messages:
     if msg["role"] == "assistant":
-        with st.chat_message("assistant", avatar=(ASSISTANT_AVATAR, "assistant-avatar")):
-            st.markdown(msg["content"])
-            st.markdown(f'<div class="bubble-ts">{msg.get("ts","")}</div>', unsafe_allow_html=True)
-            if "sources" in msg and msg["sources"]:
-                with st.expander("📰 근거 보기"):
-                    for i, d in enumerate(msg["sources"], 1):
-                        meta = d.get("metadata", {})
-                        title = meta.get("title") or meta.get("news_title") or meta.get("file_name") or "문서"
-                        url = meta.get("url") or meta.get("link")
-                        score = d.get("score")
-                        st.markdown(f"**{i}. {title}**  \n- score: `{score:.4f}`" if score is not None else f"**{i}. {title}**")
-                        if url:
-                            st.markdown(f"- 링크: {url}")
-                        if meta:
-                            # 너무 길면 일부만
-                            keep = {k: meta[k] for k in list(meta)[:6]}
-                            st.code(keep, language="json")
+        render_assistant(msg["content"], ts=msg.get("ts"), sources=msg.get("sources"))
     else:
-        with st.chat_message("user", avatar=(USER_AVATAR, "user-avatar")):
-            st.markdown(msg["content"])
-            st.markdown(f'<div class="bubble-ts">{msg.get("ts","")}</div>', unsafe_allow_html=True)
+        render_user(msg["content"], ts=msg.get("ts"))
 
-# ──────────────────────────────────────────────────────────────────
-# 입력창 + 응답 생성
-# ──────────────────────────────────────────────────────────────────
-prompt = st.chat_input("질문을 입력하세요… (예: 삼성전자 주가 전망)")
+# 입력 처리
+prompt = st.chat_input("질문을 입력하세요…")
 if prompt:
-    # 사용자 메시지 추가
     st.session_state.messages.append({"role": "user", "content": prompt, "ts": ts_now()})
-
-    # 모델 호출
-    with st.chat_message("assistant", avatar=(ASSISTANT_AVATAR, "assistant-avatar")):
-        with st.spinner("답변 생성 중…"):
-            if rag is not None:
-                result = rag.answer(prompt)
-                answer = result.get("answer", "관련된 정보를 찾을 수 없습니다.")
-                sources = result.get("source_documents", [])
-            else:
-                # Demo fallback
-                answer = (
-                    "데모 모드입니다. RAG 백엔드를 초기화하지 못했습니다.\n\n"
-                    "질문 요약: **" + prompt + "**\n\n"
-                    "샘플 응답: 시장 전반의 변동성, 업종 수급, 환율을 함께 보며 분할 접근을 권고합니다."
-                )
-                sources = []
-            st.markdown(answer)
-            st.markdown(f'<div class="bubble-ts">{ts_now()}</div>', unsafe_allow_html=True)
-
-            # “근거 보기” 즉시 표시 및 세션에도 저장
-            if sources:
-                with st.expander("📰 근거 보기"):
-                    for i, d in enumerate(sources, 1):
-                        meta = d.get("metadata", {})
-                        title = meta.get("title") or meta.get("news_title") or meta.get("file_name") or "문서"
-                        url = meta.get("url") or meta.get("link")
-                        score = d.get("score")
-                        st.markdown(f"**{i}. {title}**  \n- score: `{score:.4f}`" if score is not None else f"**{i}. {title}**")
-                        if url:
-                            st.markdown(f"- 링크: {url}")
-                        if meta:
-                            keep = {k: meta[k] for k in list(meta)[:6]}
-                            st.code(keep, language="json")
-
-    # 대화 기록에 어시스턴트 응답 저장(소스도 함께)
-    st.session_state.messages.append(
-        {"role": "assistant", "content": answer, "ts": ts_now(), "sources": sources}
-    )
+    with st.spinner("답변 생성 중…"):
+        if rag is not None:
+            result = rag.answer(prompt)
+            answer = result.get("answer", "관련된 정보를 찾을 수 없습니다.")
+            sources = result.get("source_documents", [])
+        else:
+            answer = "데모 모드 응답입니다."
+            sources = []
+    st.session_state.messages.append({"role": "assistant", "content": answer, "ts": ts_now(), "sources": sources})
     st.rerun()
