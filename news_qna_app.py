@@ -247,21 +247,44 @@ st.markdown("""
 <script>
 (function(){
   function fit(){
-    const card = document.querySelector('.block-container > :first-child');
+const card = document.querySelector('.block-container > :first-child');
     const body = document.getElementById('screen-body') || document.querySelector('.screen-body');
     const dock = document.querySelector('.chat-dock');
     if(!card || !body) return;
+
     const cardRect = card.getBoundingClientRect();
     const bodyRect = body.getBoundingClientRect();
     const topInside = bodyRect.top - cardRect.top;
-    const dockH = (dock ? dock.offsetHeight : 0) + 16;
+    const dockH = (dock ? dock.offsetHeight : 0) + 16; // 아래 여유
     const targetH = card.clientHeight - topInside - dockH;
-    if (targetH > 120) { body.style.height = targetH + 'px'; body.style.overflowY = 'auto'; }
+
+    if (targetH > 120) {
+      body.style.height = targetH + 'px';
+      body.style.maxHeight = targetH + 'px';     // ✅ 높이 고정 강제
+      body.style.overflowY = 'auto';
+    }
   }
+
+  // 기존 바인딩들
   window.addEventListener('load', fit);
   window.addEventListener('resize', fit);
-  const ro = new ResizeObserver(fit); ro.observe(document.body);
-  setTimeout(fit,50); setTimeout(fit,200); setTimeout(fit,600);
+  const ro = new ResizeObserver(fit);
+  ro.observe(document.body);
+
+  // ✅ 메시지/도크 내용이 바뀔 때마다 재계산
+  const msg = document.getElementById('screen-body') || document.querySelector('.screen-body');
+  const dock = document.querySelector('.chat-dock');
+  if (msg) {
+    const mo1 = new MutationObserver(fit);
+    mo1.observe(msg, {childList:true, subtree:true, characterData:true});
+  }
+  if (dock) {
+    const mo2 = new MutationObserver(fit);
+    mo2.observe(dock, {childList:true, subtree:true});
+  }
+
+  // 약간의 지연 재계산(스트림릿 재렌더 보정)
+  setTimeout(fit, 50); setTimeout(fit, 200); setTimeout(fit, 600);
 })();
 </script>
 """, unsafe_allow_html=True)
