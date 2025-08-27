@@ -187,12 +187,17 @@ def _render_message(text: str, sender: str, ts: str):
 def _render_sources_inline(sources: List[Dict[str,Any]]):
     if not sources: return
     chips=[]
-    for i,d in enumerate(sources,1):
-        m=d.get("metadata",{}) or {}
-        title=m.get("title") or m.get("path") or m.get("source") or f"문서 {i}"
-        url=m.get("url"); score=float(d.get("score",0.0))
-        label=f"#{i} {title} · {score:.3f}"
-        chips.append(f'<span class="source-chip">{("<a href=\\"" + url + "\\" target=\\"_blank\\">" + label + "</a>") if url else label}</span>')
+    for i, d in enumerate(sources, 1):
+    m = d.get("metadata", {}) or {}
+    title = m.get("title") or m.get("path") or m.get("source") or f"문서 {i}"
+    url = m.get("url")
+    score = float(d.get("score", 0.0))
+    label = f"#{i} {title} · {score:.3f}"
+    if url:
+        chip_html = f'<span class="source-chip"><a href="{url}" target="_blank">{label}</a></span>'
+    else:
+        chip_html = f'<span class="source-chip">{label}</span>'
+    chips.append(chip_html)
     _md(f'<div class="src-row">{"".join(chips)}</div>')
 def _copy_button(text: str, key: str):
     from streamlit.components.v1 import html as st_html
