@@ -343,8 +343,7 @@ for i, m in enumerate(st.session_state.messages):
         if m.get("sources"): _render_sources_inline(m["sources"])
 
 # ============ Input / Actions ============
-q = st.chat_input("질문을 입력하세요…", key="chat_input",
-                  placeholder="예) 우리금융지주 전망은?")
+q = st.chat_input("질문을 입력하세요…", key="chat_input")
 if not q:
     # 프리셋 선택 시 자동 입력
     q = st.session_state.get("_preset")
