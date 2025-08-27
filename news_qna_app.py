@@ -77,13 +77,13 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": "대화를 새로 시작합니다. 무엇이 궁금하신가요?", "ts": ts_now()}
     ]
 
-if prompt:
-    with st.spinner("답변 생성 중…"):
-        result = get_rag_response(prompt)   # ← 바로 호출
-        answer = result.get("answer", "관련된 정보를 찾을 수 없습니다.")
-        sources = result.get("source_documents", [])
-
-rag = st.session_state.rag
+if "rag" not in st.session_state:
+    try:
+        # 함수 기반이므로 인스턴스 생성 대신 함수 참조만 저장
+        st.session_state.rag = get_rag_response
+    except Exception as e:
+        st.session_state.rag = None
+        st.warning(f"RAG 초기화 오류: {e}\n\nDemo 모드로 동작합니다.")
 
 # 아바타(이모지 or 이미지 URL 사용 가능)
 ASSISTANT_AVATAR = "🧙‍♂️"
