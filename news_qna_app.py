@@ -123,33 +123,70 @@ def _extract_score_str(d: dict) -> Optional[str]:
 # ------------------------
 # 메시지 렌더
 # ------------------------
+def _avatar_html(role: str) -> str:
+    if role == "assistant":
+        if ASSISTANT_AVATAR_URL:
+            return f"<div class='avatar'><img src='{ASSISTANT_AVATAR_URL}'/></div>"
+        return f"<div class='avatar emoji'>{ASSISTANT_EMOJI}</div>"
+    else:
+        if USER_AVATAR_URL:
+            return f"<div class='avatar'><img src='{USER_AVATAR_URL}'/></div>"
+        return f"<div class='avatar emoji'>{USER_EMOJI}</div>"
+        
+# ------------------------
+# 아바타 CSS
+# ------------------------
+
+st.markdown("""
+<style>
+/* 아바타 + 말풍선 스타일 */
+.chat-row{ ... }
+.avatar{ ... }
+...
+</style>
+""", unsafe_allow_html=True)
+
+
 def render_messages(msgs, placeholder):
-    html = []
+    html_parts = []
     for m in msgs:
-        if m["role"] == "user":
-            html.append(
-                f"<div style='text-align:right; margin:6px;'>"
-                f"<span style='background:#0b62e6; color:white; padding:8px 12px; border-radius:12px;'>{_linkify(_escape_html(m['content']))}</span>"
-                f"</div>"
+        role = m.get("role","assistant")
+        text = _linkify(_escape_html(m.get("content","")))
+        ts   = _escape_html(m.get("ts",""))
+
+        if role == "assistant":
+            html_parts.append(
+                "<div class='chat-row bot-row'>"
+                f"{_avatar_html('assistant')}"
+                f"<div><div class='bubble bot'>{text}</div>"
+                f"<div class='time'>{ts}</div>"
+                "</div></div>"
             )
-        else:
-            html.append(
-                f"<div style='text-align:left; margin:6px;'>"
-                f"<span style='background:#f1f1f1; padding:8px 12px; border-radius:12px;'>{_linkify(_escape_html(m['content']))}</span>"
-                f"<div style='font-size:11px; color:gray;'>{m['ts']}</div>"
-            )
-            # 🔎 근거칩
+            # 근거칩(있을 때만)
             for j, src in enumerate(m.get("sources", []), 1):
                 title, url = _extract_title_url(src)
                 score_s = _extract_score_str(src)
-                label = f"#{j} {title or f'문서 {j}'}"  # ← 따옴표 오타 수정
-                if score_s:
-                    label += f" ({score_s})"
-                if url:
-                    label = f"<a href='{url}' target='_blank'>{label}</a>"
-                html.append(f"<div style='font-size:12px; color:#0b62e6; margin-left:12px;'>📎 {label}</div>")
+                label = f"#{j} {title or f'문서 {j}'}"
+                if score_s: label += f" ({score_s})"
+                if url: label = f"<a href='{url}' target='_blank'>{label}</a>"
+                html_parts.append(
+                    "<div class='chat-row bot-row' style='margin-top:-6px;'>"
+                    f"<div style='width:40px'></div>"
+                    f"<div class='time' style='margin-left:4px;'>📎 {label}</div>"
+                    "</div>"
+                )
+        else:
+            # 유저는 오른쪽 정렬: 말풍선 먼저, 아바타는 우측
+            html_parts.append(
+                "<div class='chat-row user-row'>"
+                f"<div><div class='bubble user'>{text}</div>"
+                f"<div class='time' style='text-align:right'>{ts}</div>"
+                "</div>"
+                f"{_avatar_html('user')}"
+                "</div>"
+            )
 
-    placeholder.markdown("\n".join(html), unsafe_allow_html=True)
+    placeholder.markdown("\n".join(html_parts), unsafe_allow_html=True)
 
 # ------------------------
 # UI 헤더 & 플레이스홀더
@@ -158,6 +195,10 @@ st.title("🧙‍♂️ 우리 연금술사")
 messages_ph = st.empty()
 debug = st.sidebar.toggle("🔍 RAG 디버그 보기", value=True)
 
+ASSISTANT_AVATAR_URL = os.getenv("ASSISTANT_AVATAR_URL", "")  # 예: https://...
+USER_AVATAR_URL      = os.getenv("USER_AVATAR_URL", "")
+ASSISTANT_EMOJI      = "🧙‍♂️"
+USER_EMOJI           = "🤴"
 # ------------------------
 # 답변 생성
 # ------------------------
