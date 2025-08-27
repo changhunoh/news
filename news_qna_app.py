@@ -111,6 +111,7 @@ st.markdown("""
   --brand:#0b62e6; --bezel:#0b0e17; --screen:#ffffff;
   --line:#e6ebf4; --chip:#eef4ff; --text:#1f2a44;
   --dock-h: 140px;
+  --header-h: 56px;
 }
 html, body, [data-testid="stAppViewContainer"]{ height:100%; }
 html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-testid="stSidebar"]{
@@ -138,10 +139,8 @@ html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-tes
 .screen-body{
   flex:1 1 auto; min-height:0; overflow-y:auto; touch-action: pan-y; -webkit-overflow-scrolling: touch;
   padding:8px 10px 12px; scrollbar-width:thin; scrollbar-color:#c0c7d6 #f0f4ff;
-}
-/* 헤더가 위에 고정되므로 본문은 약간 위쪽 패딩 추가 */
-.screen-body{
-  padding-top: 8px;   /* 기존 padding에 +8px 성격, 중복이면 최종값만 유지됩니다 */
+  padding-top: var(--header-h);
+  overflow-y auto !important;
 }
 .screen-body::-webkit-scrollbar{ width:8px; }
 .screen-body::-webkit-scrollbar-track{ background:#f0f4ff; border-radius:8px; }
@@ -150,14 +149,10 @@ html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-tes
 .screen-body{ overscroll-behavior: contain; }
 
 /* 프리셋 버튼 포커스 링이 헤더에 겹쳐 보이지 않도록 */
-.stButton > button{
-  position: relative;
-  z-index: 1;
-  outline-offset: 2px;
-}
+.stButton > button{ position: relative; z-index: 1; }
 
 /* 도크 가림 방지 여백 */
-.screen-spacer{ flex:0 0 var(--dock-h); height:var(--dock-h); }
+.screen-spacer{ flex: 0 0 var(--dock-h); height: var(--dock-h); }
 
 /* 기본 요소 */
 .stChatInputContainer{ display:none !important; }
@@ -171,12 +166,12 @@ button, .stButton > button, .stDownloadButton > button{
 
 /* 헤더 */
 .chat-header{
-  position: sticky;   /* ✅ 스크롤 중에도 상단 고정 */
-  top: 0;             /* 카드 내부 최상단 */
-  z-index: 20;        /* 말풍선/버튼 위에 오도록 */
-  background: var(--screen);         /* 겹쳐 보여도 배경이 받쳐주게 */
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--screen);
   padding: 10px 6px 12px;
-  margin: 0 0 8px;    /* 본문과 간격 */
+  margin: 0 0 8px;
   border-bottom: 1px solid var(--line);
 }
 .chat-title{ font-size:20px; font-weight:900; color:var(--text); letter-spacing:.2px; }
@@ -246,48 +241,85 @@ st.markdown("""<script>try{document.documentElement.style.colorScheme='light';}c
 st.markdown("""
 <script>
 (function(){
+  let bodyObs = null, cardObs = null, dockObs = null;
+
+  function setCSSVar(name, px){
+    try { document.documentElement.style.setProperty(name, (px|0) + 'px'); } catch(e){}
+  }
+
   function fit(){
-const card = document.querySelector('.block-container > :first-child');
+    const card = document.querySelector('.block-container > :first-child');
     const body = document.getElementById('screen-body') || document.querySelector('.screen-body');
     const dock = document.querySelector('.chat-dock');
-    if(!card || !body) return;
+    const header = document.querySelector('.chat-header');
+    if(!card || !body){ return; }
+
+    const headerH = header ? header.offsetHeight : 0;
+    setCSSVar('--header-h', headerH);             // ✅ 헤더 실제 높이 반영
 
     const cardRect = card.getBoundingClientRect();
     const bodyRect = body.getBoundingClientRect();
-    const topInside = bodyRect.top - cardRect.top;
-    const dockH = (dock ? dock.offsetHeight : 0) + 16; // 아래 여유
+    const topInside = bodyRect.top - cardRect.top; // 헤더/프리셋/마진을 모두 포함한 오프셋
+
+    const dockH = (dock ? dock.offsetHeight : 0) + 16;
+    setCSSVar('--dock-h', (dock ? dock.offsetHeight : 140)); // ✅ spacer에도 실높이 반영
+
     const targetH = card.clientHeight - topInside - dockH;
 
     if (targetH > 120) {
       body.style.height = targetH + 'px';
-      body.style.maxHeight = targetH + 'px';     // ✅ 높이 고정 강제
+      body.style.maxHeight = targetH + 'px';
       body.style.overflowY = 'auto';
     }
   }
 
-  // 기존 바인딩들
-  window.addEventListener('load', fit);
+  function bindObservers(){
+    const card = document.querySelector('.block-container > :first-child');
+    const body = document.getElementById('screen-body') || document.querySelector('.screen-body');
+    const dock = document.querySelector('.chat-dock');
+
+    // 이전 옵저버 해제
+    if (bodyObs) { bodyObs.disconnect(); bodyObs = null; }
+    if (cardObs) { cardObs.disconnect(); cardObs = null; }
+    if (dockObs) { dockObs.disconnect(); dockObs = null; }
+
+    // 카드 전체 변화 관찰 → body가 새로 그려져도 다시 fit + 재바인딩
+    if (card){
+      cardObs = new MutationObserver(function(){
+        fit();
+        // body 엘리먼트가 교체되면 다시 body 옵저버를 연결
+        const b = document.getElementById('screen-body') || document.querySelector('.screen-body');
+        if (b && !bodyObs){
+          bodyObs = new MutationObserver(fit);
+          bodyObs.observe(b, {childList:true, subtree:true, characterData:true});
+        }
+      });
+      cardObs.observe(card, {childList:true, subtree:true});
+    }
+
+    if (body){
+      bodyObs = new MutationObserver(fit);
+      bodyObs.observe(body, {childList:true, subtree:true, characterData:true});
+    }
+
+    if (dock){
+      dockObs = new MutationObserver(fit);
+      dockObs.observe(dock, {childList:true, subtree:true});
+    }
+  }
+
+  // 초기 호출 & 바인딩
+  window.addEventListener('load', function(){ fit(); bindObservers(); });
   window.addEventListener('resize', fit);
-  const ro = new ResizeObserver(fit);
-  ro.observe(document.body);
 
-  // ✅ 메시지/도크 내용이 바뀔 때마다 재계산
-  const msg = document.getElementById('screen-body') || document.querySelector('.screen-body');
-  const dock = document.querySelector('.chat-dock');
-  if (msg) {
-    const mo1 = new MutationObserver(fit);
-    mo1.observe(msg, {childList:true, subtree:true, characterData:true});
-  }
-  if (dock) {
-    const mo2 = new MutationObserver(fit);
-    mo2.observe(dock, {childList:true, subtree:true});
-  }
-
-  // 약간의 지연 재계산(스트림릿 재렌더 보정)
-  setTimeout(fit, 50); setTimeout(fit, 200); setTimeout(fit, 600);
+  // 스트림릿 재렌더 보정
+  setTimeout(function(){ fit(); bindObservers(); }, 50);
+  setTimeout(function(){ fit(); bindObservers(); }, 200);
+  setTimeout(function(){ fit(); bindObservers(); }, 600);
 })();
 </script>
 """, unsafe_allow_html=True)
+
 
 # =========================
 # 백엔드 서비스 (선택)
