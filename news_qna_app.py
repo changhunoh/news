@@ -119,6 +119,15 @@ def _extract_score_str(d: dict) -> Optional[str]:
             except:
                 pass
     return None
+    
+# ------------------------
+# 아바타 경로
+# ------------------------
+
+ASSISTANT_AVATAR_URL = os.getenv("ASSISTANT_AVATAR_URL", "")  # 예: https://...
+USER_AVATAR_URL      = os.getenv("USER_AVATAR_URL", "")
+ASSISTANT_EMOJI      = "🧙‍♂️"
+USER_EMOJI           = "🤴"
 
 # ------------------------
 # 메시지 렌더
@@ -139,13 +148,26 @@ def _avatar_html(role: str) -> str:
 
 st.markdown("""
 <style>
-/* 아바타 + 말풍선 스타일 */
-.chat-row{ ... }
-.avatar{ ... }
-...
+/* 아바타 + 말풍선 기본 레이아웃 */
+.chat-row{ display:flex; gap:10px; margin:10px 0; align-items:flex-start; }
+.bot-row { justify-content:flex-start; }
+.user-row{ justify-content:flex-end;  }
+
+/* 아바타 */
+.avatar{ width:40px; height:40px; border-radius:999px; overflow:hidden;
+         border:1px solid #e5e7eb; background:#fff; flex:0 0 40px; }
+.avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+.avatar.emoji{ display:flex; align-items:center; justify-content:center; font-size:22px; }
+
+/* 말풍선 */
+.bubble{ max-width:80%; padding:10px 12px; border-radius:14px; line-height:1.6; }
+.bubble.bot  { background:#f5f6f8; color:#111; }
+.bubble.user { background:#0b62e6; color:#fff; }
+
+/* 타임스탬프 */
+.time{ font-size:11px; color:#6b7280; margin-top:4px; }
 </style>
 """, unsafe_allow_html=True)
-
 
 def render_messages(msgs, placeholder):
     html_parts = []
@@ -194,11 +216,6 @@ def render_messages(msgs, placeholder):
 st.title("🧙‍♂️ 우리 연금술사")
 messages_ph = st.empty()
 debug = st.sidebar.toggle("🔍 RAG 디버그 보기", value=True)
-
-ASSISTANT_AVATAR_URL = os.getenv("ASSISTANT_AVATAR_URL", "")  # 예: https://...
-USER_AVATAR_URL      = os.getenv("USER_AVATAR_URL", "")
-ASSISTANT_EMOJI      = "🧙‍♂️"
-USER_EMOJI           = "🤴"
 # ------------------------
 # 답변 생성
 # ------------------------
