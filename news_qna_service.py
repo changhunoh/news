@@ -26,7 +26,7 @@ class NewsQnAService:
         qdrant_key: str | None = None,
         collection: str = "stock_news",
         embed_model_name: str = "gemini-embedding-001",
-        gen_model_name: str = "gemini-2.5-pro",
+        gen_model_name: str = "gemini-2.5-flash-lite",
         embed_dim: int = 3072,
         top_k: int = 5,
         rerank_top_k: int = 5,
