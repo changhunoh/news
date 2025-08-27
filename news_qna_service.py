@@ -25,7 +25,7 @@ class NewsQnAService:
         qdrant_key: str | None = None,
         collection: str = "stock_news",
         embed_model_name: str = "gemini-embedding-001",
-        gen_model_name: str = "gemini-2.5-flash-lite",
+        gen_model_name: str = "gemini-2.5-pro",
         embed_dim: int = 3072,
         top_k: int = 10,
         rerank_top_k: int = 5,
@@ -127,10 +127,10 @@ class NewsQnAService:
         ctx = "\n\n".join(d["content"] for d in docs)
         prompt = f"""
         당신은 주식시장과 연금에 정통한 애널리스트입니다.
-        아래 컨텍스트만 근거로 한국어로 간결하게 답하세요.
+        아래 컨텍스트만 근거로 한국어로 핵심 내용 위주로 답변해주세요.
         모호하면 "관련된 정보를 찾을 수 없습니다."라고 답하세요.
         중요 포인트는 **굵게** 표시하세요.
-        답변 후에는 답변을 생성하는데 활용한 관련 기사도 하단에 같이 보여주세요.
+        근거에 활용한 기사는 하단에 한줄로 요약하여 보여주세요.
         
         [컨텍스트]
         {ctx}
