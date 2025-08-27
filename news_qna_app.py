@@ -10,7 +10,7 @@ import streamlit as st
 # =========================
 # Page config & Secrets → ENV
 # =========================
-st.set_page_config(page_title="나의 퇴직연금 챗봇", page_icon="📰", layout="centered")
+st.set_page_config(page_title="우리 연금술사", page_icon="📰", layout="centered")
 
 def _prime_env_from_secrets():
     try:
