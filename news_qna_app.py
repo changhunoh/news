@@ -40,51 +40,57 @@ def _escape_html(s: Optional[str]) -> str:
 
 def _linkify(s: str) -> str:
     return re.sub(r"(https?://[\w\-\./%#\?=&:+,~]+)", r'<a href="\1" target="_blank">\1</a>', s or "")
-
-def _render_messages_block(messages: List[Dict[str, Any]]):
-    """메시지 전부를 단일 HTML 블록으로 렌더(내부 스크롤 + 자동 스크롤 + Dock 가려짐 방지)."""
+    
+def _build_messages_html(messages: List[Dict[str, Any]]) -> str:
     parts = []
     for i, m in enumerate(messages):
         role = m.get("role", "assistant")
-        row = "user-row" if role == "user" else "bot-row"
-        bub = "user-bubble" if role == "user" else "bot-bubble"
+        row  = "user-row" if role == "user" else "bot-row"
+        bub  = "user-bubble" if role == "user" else "bot-bubble"
         text_raw = m.get("content", "") or ""
-        text = _linkify(_escape_html(text_raw))
-        ts = _escape_html(m.get("ts", ""))
+        ts   = _escape_html(m.get("ts", ""))
 
-        parts.append(
-            f'<div class="chat-row {row}"><div class="chat-bubble {bub}">{text}</div></div>'
-            f'<div class="timestamp {"ts-right" if role=="user" else "ts-left"}">{ts}</div>'
-            f'<div class="action-bar"><button class="action-btn copy-btn" '
-            f'data-text="{_escape_html(text_raw)}">📋 복사</button></div>'
-        )
+        # 생성 중(typing) 말풍선
+        if m.get("pending"):
+            bubble = (
+                '<div class="typing-bubble">'
+                '<span class="typing-dot"></span>'
+                '<span class="typing-dot"></span>'
+                '<span class="typing-dot"></span>'
+                '</div>'
+            )
+            parts.append(
+                f'<div class="chat-row bot-row">{bubble}</div>'
+                f'<div class="timestamp ts-left">{ts}</div>'
+            )
+        else:
+            text = _linkify(_escape_html(text_raw))
+            parts.append(
+                f'<div class="chat-row {row}"><div class="chat-bubble {bub}">{text}</div></div>'
+                f'<div class="timestamp {"ts-right" if role=="user" else "ts-left"}">{ts}</div>'
+            )
+            # 소스칩 (assistant에만)
+            if role == "assistant":
+                srcs = m.get("sources") or []
+                if srcs:
+                    chips = []
+                    for j, d in enumerate(srcs, 1):
+                        md = (d.get("metadata") or {}) if isinstance(d, dict) else {}
+                        title = md.get("title") or md.get("path") or md.get("source") or f"문서 {j}"
+                        url   = md.get("url"); 
+                        try: score = float(d.get("score", 0.0) or 0.0)
+                        except: score = 0.0
+                        label = f"#{j} {title} · {score:.3f}"
+                        chips.append(f'<span class="source-chip">{f"<a href=\\"{url}\\" target=\\"_blank\\">{label}</a>" if url else label}</span>')
+                    parts.append(f'<div class="src-row">{"".join(chips)}</div>')
 
-        if role == "assistant":
-            srcs = m.get("sources") or []
-            if srcs:
-                chips = []
-                for j, d in enumerate(srcs, 1):
-                    md = (d.get("metadata") or {}) if isinstance(d, dict) else {}
-                    title = md.get("title") or md.get("path") or md.get("source") or f"문서 {j}"
-                    url = md.get("url")
-                    try: score = float(d.get("score", 0.0) or 0.0)
-                    except: score = 0.0
-                    label = f"#{j} {title} · {score:.3f}"
-                    chips.append(
-                        f'<span class="source-chip">'
-                        + (f'<a href="{url}" target="_blank">{label}</a>' if url else label)
-                        + '</span>'
-                    )
-                parts.append(f'<div class="src-row">{"".join(chips)}</div>')
-
-    html = (
+    return (
         '<div class="screen-shell">'
         '<div class="screen-body" id="screen-body">'
-        + "".join(parts)
-        + '<div class="screen-spacer"></div>'   # Dock 높이만큼 빈칸
-        + '<div id="end-anchor"></div>'         # 자동 스크롤 앵커
+        + "".join(parts) +
+        '<div class="screen-spacer"></div>'
+        '<div id="end-anchor"></div>'
         '</div></div>'
-        # 복사 버튼 & 자동 스크롤
         '<script>(function(){'
         ' document.addEventListener("click", function(ev){'
         '   var b = ev.target.closest(".copy-btn"); if(!b) return;'
@@ -94,20 +100,13 @@ def _render_messages_block(messages: List[Dict[str, Any]]):
         '   document.body.removeChild(ta);'
         ' }, true);'
         ' try {'
-        '   var body = document.getElementById("screen-body");'
-        '   var end = document.getElementById("end-anchor");'
-        '   if (body && end) { end.scrollIntoView({behavior:"instant", block:"end"}); }'
-        '   if (body) {'
-        '     var mo = new MutationObserver(function(){'
-        '       var end2 = document.getElementById("end-anchor");'
-        '       if (end2) end2.scrollIntoView({behavior:"instant", block:"end"});'
-        '     });'
-        '     mo.observe(body, {childList:true, subtree:true});'
-        '   }'
+        '   var end = document.getElementById("end-anchor"); if (end) end.scrollIntoView({behavior:"instant", block:"end"});'
         ' } catch(e){}'
         '})();</script>'
     )
-    st.markdown(html, unsafe_allow_html=True)
+
+ph_messages = st.empty()
+ph_messages.markdown(_build_messages_html(st.session_state.messages), unsafe_allow_html=True)
 
 # =========================
 # CSS
@@ -295,6 +294,23 @@ button, .stButton > button, .stDownloadButton > button{
 .chat-dock:empty, .chat-dock .dock-wrap:empty{ display:none !important; }
 .chat-dock .dock-wrap > *:not(form){ display:none !important; }
 .chat-dock input{ background:#ffffff !important; color:#1f2a44 !important; }
+/* 타이핑(생성 중) 말풍선 */
+.typing-bubble{
+  max-width:86%; padding:14px 16px; border-radius:18px; background:#ffffff; color:var(--text);
+  border:1px solid var(--line); border-bottom-left-radius:8px; box-shadow:0 10px 22px rgba(15,23,42,.08);
+  display:inline-flex; gap:6px; align-items:center;
+}
+.typing-dot{
+  width:8px; height:8px; border-radius:50%; background:#a8b3c8; display:inline-block;
+  animation: typingDot 1.2s infinite ease-in-out;
+}
+.typing-dot:nth-child(2){ animation-delay: .15s; }
+.typing-dot:nth-child(3){ animation-delay: .3s; }
+
+@keyframes typingDot{
+  0%, 80%, 100% { transform: translateY(0); opacity:.5; }
+  40% { transform: translateY(-4px); opacity:1; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -479,6 +495,12 @@ def run_answer(question: str):
     now = format_timestamp(datetime.now(TZ))
     st.session_state.messages.append({"role":"user","content":question,"sources":[], "ts":now})
 
+    # 1) 생성 중 말풍선 추가 + 즉시 렌더
+    now_p = format_timestamp(datetime.now(TZ))
+    st.session_state.messages.append({"role":"assistant","content":"", "sources":[], "ts":now_p, "pending": True})
+    ph_messages.markdown(_build_messages_html(st.session_state.messages), unsafe_allow_html=True)
+
+    # 2) 실제 생성 작업
     with st.spinner("검색/생성 중…"):
         main = {}
         if svc is None:
@@ -489,13 +511,20 @@ def run_answer(question: str):
             except Exception as e:
                 st.error(f"svc.answer 오류: {e}")
                 main = {}
-
         main_sources = main.get("source_documents", []) or []
         answer = generate_with_context(question, main_sources)
 
-    now2 = format_timestamp(datetime.now(TZ))
-    st.session_state.messages.append({"role":"assistant","content":answer,"sources":main_sources,"ts":now2})
-    # 재실행 후 위의 _render_messages_block가 최신 상태를 렌더합니다.
+    # 3) pending 말풍선을 결과로 교체
+    st.session_state.messages[-1] = {
+        "role": "assistant",
+        "content": answer,
+        "sources": main_sources,
+        "ts": format_timestamp(datetime.now(TZ))
+    }
+    ph_messages.markdown(_build_messages_html(st.session_state.messages), unsafe_allow_html=True)
+
+    
+# 재실행 후 위의 _render_messages_block가 최신 상태를 렌더합니다.
 
 if 'submitted' in locals() and submitted and user_q:
     run_answer(user_q)
