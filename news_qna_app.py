@@ -2,6 +2,7 @@ import os, io, re
 from typing import List, Dict, Any
 from datetime import datetime
 from zoneinfo import ZoneInfo
+import time
 
 import numpy as np
 import streamlit as st
@@ -9,7 +10,7 @@ import streamlit as st
 # ----------------------------
 # Page config & Secrets → ENV
 # ----------------------------
-st.set_page_config(page_title="나의 퇴직연금 챗봇", page_icon="📰", layout="centered")
+st.set_page_config(page_title="나의 퇴직연금 챗봇", page_icon="📰", layout="centered", initial_sidebar_state="collapsed")
 
 def _prime_env_from_secrets():
     try:
@@ -24,15 +25,15 @@ TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
 # 고정 폭(폰 느낌) + 반응형
 st.markdown("""
 <style>
-.block-container{ max-width:720px; margin-inline:auto; padding-top:10px; }
-@media (max-width:640px){ .block-container{ max-width:94vw; } }
+.block-container { max-width: 560px; margin-inline: auto; padding-top: 10px; }
+@media (max-width: 640px) { .block-container { max-width: 94vw; } }
 </style>
 """, unsafe_allow_html=True)
 
 # ----------------------------
 # Backend service
 # ----------------------------
-from news_qna_service import NewsQnAService  # 같은 리포에 있어야 합니다.
+from news_qna_service import NewsQnAService
 
 @st.cache_resource
 def get_service() -> NewsQnAService:
@@ -53,7 +54,7 @@ svc = get_service()
 EMBED_DIM = int(os.getenv("EMBED_DIM", "3072"))
 
 # ----------------------------
-# Lazy Vertex models (for temp index + generation)
+# Lazy Vertex models
 # ----------------------------
 _vertex_inited = False
 _embed_model = None
@@ -96,12 +97,12 @@ if "messages" not in st.session_state:
         "sources": [], "ts": datetime.now(TZ).strftime("%Y-%m-%d %H:%M")
     }]
 if "temp_docs" not in st.session_state:
-    st.session_state.temp_docs: List[Dict[str, Any]] = []  # 업로드 임시 인덱스
+    st.session_state.temp_docs: List[Dict[str, Any]] = []
 if "_preset" not in st.session_state:
     st.session_state._preset = None
 
 # ----------------------------
-# Light Theme (강제 적용)
+# Light Theme
 # ----------------------------
 THEME = {
     "bg": "#e0f7fa",  # 연하늘
@@ -121,17 +122,24 @@ THEME = {
     "input_fg": "#1f2a44",
 }
 
-# ===== CSS (색/래핑/버튼/칩/입력창 보정 + 헤더/리셋 버튼) =====
+# CSS with higher specificity and cache-busting
+cache_buster = int(time.time())
 st.markdown(f"""
-<style>
-html, body {{ 
-    background: {THEME["bg"]} !important; 
-    color: {THEME["text"]} !important; 
+<style id="custom-style-{cache_buster}">
+/* Force override Streamlit defaults */
+:root, [data-testid="stApp"], [data-testid="stAppViewContainer"], html, body {{
+    background: {THEME["bg"]} !important;
+    color: {THEME["text"]} !important;
 }}
-h3, h4, h5, h6 {{ color: {THEME["text"]} !important; }}
-.stMarkdown p, .stMarkdown div {{ color: {THEME["text"]} !important; }}
+[data-testid="stMarkdownContainer"] h3, [data-testid="stMarkdownContainer"] h4,
+[data-testid="stMarkdownContainer"] h5, [data-testid="stMarkdownContainer"] h6 {{
+    color: {THEME["text"]} !important;
+}}
+[data-testid="stMarkdownContainer"] p, [data-testid="stMarkdownContainer"] div {{
+    color: {THEME["text"]} !important;
+}}
 
-/* 상단 헤더 */
+/* Header */
 .chat-header {{
     display: flex; align-items: center; justify-content: space-between;
     margin: 4px 2px 12px;
@@ -146,8 +154,8 @@ h3, h4, h5, h6 {{ color: {THEME["text"]} !important; }}
     box-shadow: 0 4px 12px rgba(23,87,255,0.08);
 }}
 
-/* 추천 질문 칩(버튼) */
-div.stButton > button {{
+/* Preset buttons */
+div[data-testid="stButton"] > button {{
     border-radius: 999px !important;
     padding: 8px 14px !important;
     font-weight: 700 !important;
@@ -158,10 +166,13 @@ div.stButton > button {{
     min-height: auto !important;
 }}
 
-/* Expander header */
-.streamlit-expanderHeader {{ font-weight: 800 !important; color: {THEME["text"]} !important; }}
+/* Expander */
+[data-testid="stExpander"] .streamlit-expanderHeader {{
+    font-weight: 800 !important;
+    color: {THEME["text"]} !important;
+}}
 
-/* 채팅 레이아웃 */
+/* Chat layout */
 .chat-row {{ display: flex; margin: 10px 0; }}
 .user-row {{ justify-content: flex-end; }}
 .bot-row {{ justify-content: flex-start; }}
@@ -192,7 +203,7 @@ div.stButton > button {{
 .timestamp {{ font-size: 12px; color: {THEME["time"]} !important; margin: 4px 6px; }}
 .ts-left {{ text-align: left; }} .ts-right {{ text-align: right; }}
 
-/* 액션바(복사 등) */
+/* Action bar */
 .action-bar {{ display: flex; gap: 8px; margin: 6px 6px 0; }}
 .action-btn {{
     font-size: 12px; padding: 6px 10px; border-radius: 10px;
@@ -202,10 +213,11 @@ div.stButton > button {{
 }}
 .action-btn:hover {{ filter: brightness(1.05); }}
 
-/* 출처 칩 */
+/* Source chips */
 .source-chip {{
     display: inline-block; padding: 4px 10px; border-radius: 999px;
-    background: {THEME["chip_bg"]} !important; color: {THEME["chip_fg"]} !important;
+    background: {THEME["chip_bg"]} !important;
+    color: {THEME["chip_fg"]} !important;
     font-weight: 800; font-size: 12px;
     border: 1px solid {THEME["chip_border"]} !important;
     margin: 6px 6px 0 0;
@@ -214,11 +226,11 @@ div.stButton > button {{
 .source-chip a:hover {{ text-decoration: underline; }}
 .src-row {{ margin: 4px 6px 0; }}
 
-/* 구분선 */
+/* Divider */
 hr {{ border: 0; border-top: 1px solid {THEME["divider"]} !important; }}
 
-/* 입력창 가독성 */
-.stChatInputContainer textarea {{
+/* Chat input */
+[data-testid="stChatInput"] textarea {{
     background: {THEME["input_bg"]} !important;
     color: {THEME["input_fg"]} !important;
     border: 1px solid {THEME["bubble_border"]} !important;
@@ -230,7 +242,7 @@ hr {{ border: 0; border-top: 1px solid {THEME["divider"]} !important; }}
 """, unsafe_allow_html=True)
 
 # ----------------------------
-# Small utils (rendering)
+# Small utils
 # ----------------------------
 def _md(html: str):
     st.markdown(html, unsafe_allow_html=True)
@@ -256,7 +268,7 @@ def _render_sources_inline(sources: List[Dict[str,Any]]):
     for i, d in enumerate(sources, 1):
         meta = d.get("metadata", {}) or {}
         title = meta.get("title") or meta.get("path") or meta.get("source") or f"문서 {i}"
-        url   = meta.get("url")
+        url = meta.get("url")
         score = float(d.get("score", 0.0))
         label = f"#{i} {title} · {score:.3f}"
         link = f'<a href="{url}" target="_blank">{label}</a>' if url else label
@@ -296,7 +308,7 @@ def _cosine(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a,b)/(na*nb))
 
 # ----------------------------
-# Upload → Temp Index (세션 전용)
+# Upload → Temp Index
 # ----------------------------
 def _read_text_from_file(uploaded) -> str:
     name = uploaded.name.lower()
@@ -375,9 +387,7 @@ def search_temp_index(query: str, top_k=5) -> List[Dict[str,Any]]:
 # ----------------------------
 # Generation with merged context
 # ----------------------------
-def generate_with_context(question: str,
-                          main_sources: List[Dict[str,Any]],
-                          extra_sources: List[Dict[str,Any]]) -> str:
+def generate_with_context(question: str, main_sources: List[Dict[str,Any]], extra_sources: List[Dict[str,Any]]) -> str:
     def snip(t, n=1800):
         t = re.sub(r"\s+", " ", t or "")
         return t[:n]
@@ -400,7 +410,7 @@ def generate_with_context(question: str,
         return f"답변 생성 중 오류가 발생했습니다: {e}"
 
 # ----------------------------
-# Header (제목 + 우측 회전 초기화 버튼)
+# Header
 # ----------------------------
 col_t, col_btn = st.columns([1, 0.16])
 with col_t:
@@ -466,7 +476,7 @@ def run_answer(question: str):
     _render_sources_inline(merged_sources)
 
 # ----------------------------
-# Chat input + 재생성
+# Chat input + Regenerate
 # ----------------------------
 q = st.chat_input(placeholder="질문을 입력하세요…", key="chat_input")
 if not q:
