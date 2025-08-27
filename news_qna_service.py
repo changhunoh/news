@@ -167,7 +167,7 @@ class NewsQnAService:
         {question}
         """
         try:
-            resp = self.gen_model.generate_content(prompt, generation_config={"temperature": 0.2, "max_output_tokens": 1200})
+            resp = self.gen_model.generate_content(prompt, generation_config={"temperature": 0.2})
             return (resp.text or "").strip()
         except Exception as e:
             return f"답변 생성 중 오류가 발생했습니다: {e}"
