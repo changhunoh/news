@@ -23,298 +23,278 @@ _prime_env_from_secrets()
 
 TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
 
-# CSS (스크롤바 스타일 포함)
+# CSS (radial-gradient 수정, 공백 및 문자 점검)
 st.markdown("""
 <style>
-:root{
-  color-scheme: light !important;
-  --brand:#0b62e6; --bezel:#0b0e17; --screen:#ffffff;
-  --line:#e6ebf4; --chip:#eef4ff; --text:#1f2a44;
+:root {
+    color-scheme: light !important;
+    --brand: #0b62e6;
+    --bezel: #0b0e17;
+    --screen: #ffffff;
+    --line: #e6ebf4;
+    --chip: #eef4ff;
+    --text: #1f2a44;
 }
-html,body,[data-testid="stAppViewContainer"],section.main,.stMain,[data-testid="stSidebar"]{
-  background: radial-gradient(1200px 700px at 50% -220px,#f0f4ff 0%,#f6f8fb 45%,#eef1f6 100%) !important;
-  color: var(--text) !important;
+html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-testid="stSidebar"] {
+    background: radial-gradient(1200px 700px at 50% 0, #f0f4ff 0%, #f6f8fb 45%, #eef1f6 100%) !important;
+    color: var(--text) !important;
 }
-.block-container > :first-child{
-  position: relative !important;
-  height: clamp(620px, 82vh, 860px);
-  background: var(--screen) !important;
-  border: 1px solid var(--line) !important;
-  border-radius: 30px !important;
-  padding: 12px 14px 14px !important;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.65);
-  overflow: hidden;
-}
-.screen-body{
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  padding: 8px 10px 120px;
-  padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
-  scroll-padding-bottom: 120px;
-}
-.screen-body::-webkit-scrollbar {
-  width: 8px;
-}
-.screen-body::-webkit-scrollbar-track {
-  background: #f0f4ff;
-  border-radius: 8px;
-}
-.screen-body::-webkit-scrollbar-thumb {
-  background: #c0c7d6;
-  border-radius: 8px;
-}
-.screen-body::-webkit-scrollbar-thumb:hover {
-  background: #a0a7b6;
+.block-container > :first-child {
+    position: relative !important;
+    height: clamp(620px, 82vh, 860px);
+    background: var(--screen) !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 30px !important;
+    padding: 12px 14px 14px !important;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.65);
+    overflow: hidden;
 }
 .screen-body {
-  scrollbar-width: thin;
-  scrollbar-color: #c0c7d6 #f0f4ff;
-}
-.stChatInputContainer{ display:none !important; }
-a{ color:var(--brand) !important; }
-hr{ border:0; border-top:1px solid var(--line) !important; }
-button, .stButton>button, .stDownloadButton>button{
-  background: var(--chip) !important; border:1px solid #dce7ff !important;
-  color: var(--brand) !important; border-radius:999px !important; font-weight:700 !important;
-  padding:8px 14px !important; min-height:auto !important; line-height:1.1 !important;
-}
-.st-expander, .st-expander div[role="button"]{
-  background:#fff !important; border:1px solid var(--line) !important; color:var(--text) !important;
-}
-.chat-header{ display:flex; align-items:center; justify-content:space-between; margin: 8px 6px 12px; }
-.chat-title{ font-size:20px; font-weight:900; color:var(--text); letter-spacing:.2px; }
-.reset-btn>button{
-  width:38px; height:38px; border-radius:999px !important;
-  background:var(--chip) !important; color:var(--brand) !important; border:1px solid #dce7ff !important;
-  box-shadow:0 4px 12px rgba(23,87,255,.08);
-}
-.chat-row{ display:flex; margin:12px 0; align-items:flex-end; }
-.user-row{ justify-content:flex-end; }
-.bot-row{ justify-content:flex-start; align-items:flex-start !important; }
-.chat-bubble{
-  max-width:86%; padding:14px 16px; border-radius:18px; line-height:1.65; font-size:16px;
-  background:#ffffff; color:var(--text); border:1px solid var(--line);
-  border-bottom-left-radius:8px; box-shadow:0 10px 22px rgba(15,23,42,.08);
-  white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word;
-}
-.bot-row .chat-bubble{ position:relative; margin-left:54px; margin-top:2px; }
-.bot-row .chat-bubble::before{
-  content:"🧙‍♂️"; position:absolute; left:-54px; top:0; bottom:auto;
-  width:42px; height:42px; border-radius:999px; background:#fff; border:1px solid var(--line);
-  display:flex; align-items:center; justify-content:center; font-size:20px;
-  box-shadow:0 6px 14px rgba(15,23,42,.08);
-}
-.user-bubble{
-  background: var(--brand) !important; color:#fff !important; border:0 !important;
-  border-bottom-right-radius:8px; border-top-left-radius:18px;
-  box-shadow:0 10px 28px rgba(11,98,230,.26); font-weight:700; letter-spacing:.2px; padding:16px 18px;
-}
-.timestamp{ font-size:12px; color:#6b7280; margin:4px 6px; }
-.ts-left{text-align:left;} .ts-right{text-align:right;}
-.action-bar{ display:flex; gap:8px; margin:6px 6px 0; }
-.action-btn{
-  font-size:12px; padding:6px 10px; border-radius:10px;
-  border:1px solid #dce7ff; background:#eef4ff; color:var(--brand);
-}
-.source-chip{
-  display:inline-block; padding:4px 10px; border-radius:999px;
-  background:#eef4ff; color:var(--brand); font-weight:800; font-size:12px;
-  border:1px solid #dce7ff; margin:6px 6px 0 0;
-}
-.source-chip a{ color:var(--brand); text-decoration:none; }
-.source-chip a:hover{ text-decoration:underline; }
-.chat-dock{
-  position: absolute !important;
-  left: 50% !important;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
-  transform: translateX(-50%);
-  width: 92%; max-width: 370px;
-  z-index: 20;
-  filter: drop-shadow(0 10px 20px rgba(15,23,42,.18));
-}
-.chat-dock .dock-wrap{
-  display:flex; gap:8px; align-items:center;
-  background:#ffffff; border-radius:999px; padding:8px;
-  border:1px solid #e6ebf4; box-shadow: 0 8px 24px rgba(15,23,42,.10);
-}
-.chat-dock .stTextInput>div>div{ background:transparent !important; border:0 !important; padding:0 !important; }
-.chat-dock input{ height:44px !important; padding:0 12px !important; font-size:15px !important; }
-.chat-dock .send-btn>button{
-  width:40px; height:40px; border-radius:999px !important;
-  background:#e6efff !important; color:#0b62e6 !important; border:0 !important;
-  box-shadow: inset 0 0 0 1px #d8e6ff; font-weight:800;
-}
-@media (max-width: 480რ
-
-System: I'm sorry, but the response was cut off due to exceeding the token limit. Below, I'll provide a concise resolution to the `NameError` and ensure the code is complete and functional, addressing the issue with `format_timestamp` and maintaining consistency with previous fixes (e.g., correcting `ст` to `st` and ensuring proper indentation). I'll also include the rest of the code to avoid any further issues.
-
----
-
-### 오류 해결: `NameError` for `format_timestamp`
-The `NameError` on line 218 indicates that the `format_timestamp` function is missing. This function is critical for formatting timestamps in the chat interface. It was likely omitted during previous modifications (e.g., when removing file upload functionality). Below, I'll reintroduce the `format_timestamp` function and provide the complete, corrected code.
-
-Additionally, I'll ensure:
-- The `ст` typo (Cyrillic characters) is fixed to `st`.
-- Indentation is consistent (4 spaces, no tabs) to prevent the previous `IndentationError`.
-- The code is streamlined to avoid other potential errors.
-
----
-
-### 수정된 전체 코드
-This code includes the `format_timestamp` function, fixes the `ст` typo, uses consistent 4-space indentation, and retains all functionality (presets, chat interface, Vertex AI integration) without the file upload feature. Copy this into your `app.py` file in Streamlit Cloud and redeploy.
-
-```python
-import os, re
-from typing import List, Dict, Any
-from datetime import datetime
-from zoneinfo import ZoneInfo
-import streamlit as st
-
-# 페이지 설정
-st.set_page_config(page_title="우리 연금술사", page_icon="📰", layout="centered")
-
-# 환경变量 설정
-def _prime_env_from_secrets():
-    try:
-        if hasattr(st, 'secrets') and st.secrets:
-            for k, v in st.secrets.items():
-                os.environ.setdefault(k, str(v))
-        else:
-            st.warning("No secrets found in st.secrets. Ensure secrets are properly configured.")
-    except FileNotFoundError:
-        st.error("Secrets file not found. Please check your Streamlit configuration.")
-    except Exception as e:
-        st.error(f"Error loading secrets: {e}")
-_prime_env_from_secrets()
-
-TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
-
-# CSS (스크롤바 스타일 포함)
-st.markdown("""
-<style>
-:root{
-  color-scheme: light !important;
-  --brand:#0b62e6; --bezel:#0b0e17; --screen:#ffffff;
-  --line:#e6ebf4; --chip:#eef4ff; --text:#1f2 Alc44;
-}
-html,body,[data-testid="stAppViewContainer"],section.main,.stMain,[data-testid="stSidebar"]{
-  background: radial-gradient(1200px 700px at 50% -220px,#f0f4ff 0%,#f6f8fb 45%,#eef1f6 100%) !important;
-  color: var(--text) !important;
-}
-.block-container > :first-child{
-  position: relative !important;
-  height: clamp(620px, 82vh, 860px);
-  background: var(--screen) !important;
-  border: 1px solid var(--line) !important;
-  border-radius: 30px !important;
-  padding: 12px 14px 14px !important;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.65);
-  overflow: hidden;
-}
-.screen-body{
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  padding: 8px 10px 120px;
-  padding禁止
-  padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
-  scroll-padding-bottom: 120px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 8px 10px 120px;
+    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: 120px;
 }
 .screen-body::-webkit-scrollbar {
-  width: 8px;
+    width: 8px;
 }
 .screen-body::-webkit-scrollbar-track {
-  background: #f0f4ff;
-  border-radius: 8px;
+    background: #f0f4ff;
+    border-radius: 8px;
 }
 .screen-body::-webkit-scrollbar-thumb {
-  background: #c0c7d6;
-  border-radius: 8px;
+    background: #c0c7d6;
+    border-radius: 8px;
 }
 .screen-body::-webkit-scrollbar-thumb:hover {
-  background: #a0a7b6;
+    background: #a0a7b6;
 }
 .screen-body {
-  scrollbar-width: thin;
-  scrollbar-color: #c0c7d6 #f0f4ff;
+    scrollbar-width: thin;
+    scrollbar-color: #c0c7d6 #f0f4ff;
 }
-.stChatInputContainer{ display:none !important; }
-a{ color:var(--brand) !important; }
-hr{ border:0; border-top:1px solid var(--line) !important; }
-button, .stButton>button, .stDownloadButton>button{
-  background: var(--chip) !important; border:1px solid #dce7ff !important;
-  color: var(--brand) !important; border-radius:999px !important; font-weight:700 !important;
-  padding:8px 14px !important; min-height:auto !important; line-height:1.1 !important;
+.stChatInputContainer {
+    display: none !important;
 }
-.st-expander, .st-expander div[role="button"]{
-  background:#fff !important; border:1px solid var(--line) !important; color:var(--text) !important;
+a {
+    color: var(--brand) !important;
 }
-.chat-header{ display:flex; align-items:center; justify-content:space-between; margin: 8px 6px 12px; }
-.chat-title{ font-size:20px; font-weight:900; color:var(--text); letter-spacing:.2px; }
-.reset-btn>button{
-  width:38px; height:38px; border-radius:999px !important;
-  background:var(--chip) !important; color:var(--brand) !important; border:1px solid #dce7ff !important;
-  box-shadow:0 4px 12px rgba(23,87,255,.08);
+hr {
+    border: 0;
+    border-top: 1px solid var(--line) !important;
 }
-.chat-row{ display:flex; margin:12px 0; align-items:flex-end; }
-.user-row{ justify-content:flex-end; }
-.bot-row{ justify-content:flex-start; align-items:flex-start !important; }
-.chat-bubble{
-  max-width:86%; padding:14px 16px; border-radius:18px; line-height:1.65; font-size:16px;
-  backgroundქ
-  background:#ffffff; color:var(--text); border:1px solid var(--line);
-  border-bottom-left-radius:8px; box-shadow:0 10px 22px RGBA(15,23,42,.08);
-  white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word;
+button, .stButton > button, .stDownloadButton > button {
+    background: var(--chip) !important;
+    border: 1px solid #dce7ff !important;
+    color: var(--brand) !important;
+    border-radius: 999px !important;
+    font-weight: 700 !important;
+    padding: 8px 14px !important;
+    min-height: auto !important;
+    line-height: 1.1 !important;
 }
-.bot-row .chat-bubble{ position:relative; margin-left:54px; margin-top:2px; }
-.bot-row .chat-bubble::before{
-  content:"🧙‍♂️"; position:absolute; left:-54px; top:0; bottom:auto;
-  width:42px; height:42px; border-radius:999px; background:#fff; border:1px solid var(--line);
-  display:flex; align-items:center; justify-content:center; font-size:20px;
-  box-shadow:0 6px 14px rgba(15,23,42,.08);
+.st-expander, .st-expander div[role="button"] {
+    background: #fff !important;
+    border: 1px solid var(--line) !important;
+    color: var(--text) !important;
 }
-.user-bubble{
-  background: var(--brand) !important; color:#fff !important; border:0 !important;
-  border-bottom-right-radius:8px; border-top-left-radius:18px;
-  box-shadow:0 10px 28px rgba(11,98,230,.26); font-weight:700; letter-spacing:.2px; padding:16px 18px;
+.chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 8px 6px 12px;
 }
-.timestamp{ font-size:12px; color:#6b7280; margin:4px 6px; }
-.ts-left{text-align:left;} .ts-right{text-align:right;}
-.action-bar{ display:flex; gap:8px; margin:6px 6px 0; }
-.action-btn{
-  font-size:12px; padding:6px 10px; border-radius:10px;
-  border:1px solid #dce7ff; background:#eef4ff; color:var(--brand);
+.chat-title {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--text);
+    letter-spacing: .2px;
 }
-.source-chip{
-  display:inline-block; padding:4px 10px; border-radius:999px;
-  background:#eef4ff; color:var(--brand); font-weight:800; font-size:12px;
-  border:1px solid #dce7ff; margin:6px 6px 0 0;
+.reset-btn > button {
+    width: 38px;
+    height: 38px;
+    border-radius: 999px !important;
+    background: var(--chip) !important;
+    color: var(--brand) !important;
+    border: 1px solid #dce7ff !important;
+    box-shadow: 0 4px 12px rgba(23,87,255,.08);
 }
-.source-chip a{ color:var(--brand); text-decoration:none; }
-.source-chip a{ text-decoration:underline; }
-.chat-dock{
-  position: absolute !important;
-  left: 50% !important;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
-  transform: translateX(-50%);
-  width: 92%; max-width: 370px;
-  z-index: 20;
-  filter: drop-shadow(0 10px 20px rgba(15,23,42,.18));
+.chat-row {
+    display: flex;
+    margin: 12px 0;
+    align-items: flex-end;
 }
-.chat-dock .dock-wrap{
-  display:flex; gap:8px; align-items:center;
-  background:#ffffff; border-radius:999px; padding:8px;
-  border:1px solid #e6ebf4; box-shadow: 0 8px 24px rgba(15,23,42,.10);
+.user-row {
+    justify-content: flex-end;
 }
-.chat-dock .stTextInput>div>div{ background:transparent !important; border:0 !important; padding:0 !important; }
-.chat-dock input{ height:44px !important; padding:0 12px !important; font-size:15px !important; }
-.chat-dock .send-btn>button{
-  width:40px; height:40px; border-radius:999px !important;
-  background:#e6efff !important; color:#0b(play btn){ color:#0b62e6 !applescript-btn
-  font-weight:800; }
+.bot-row {
+    justify-content: flex-start;
+    align-items: flex-start !important;
+}
+.chat-bubble {
+    max-width: 86%;
+    padding: 14px 16px;
+    border-radius: 18px;
+    line-height: 1.65;
+    font-size: 16px;
+    background: #ffffff;
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-bottom-left-radius: 8px;
+    box-shadow: 0 10px 22px rgba(15,23,42,.08);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+.bot-row .chat-bubble {
+    position: relative;
+    margin-left: 54px;
+    margin-top: 2px;
+}
+.bot-row .chat-bubble::before {
+    content: "🧙‍♂️";
+    position: absolute;
+    left: -54px;
+    top: 0;
+    bottom: auto;
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 6px 14px rgba(15,23,42,.08);
+}
+.user-bubble {
+    background: var(--brand) !important;
+    color: #fff !important;
+    border: 0 !important;
+    border-bottom-right-radius: 8px;
+    border-top-left-radius: 18px;
+    box-shadow: 0 10px 28px rgba(11,98,230,.26);
+    font-weight: 700;
+    letter-spacing: .2px;
+    padding: 16px 18px;
+}
+.timestamp {
+    font-size: 12px;
+    color: #6b7280;
+    margin: 4px 6px;
+}
+.ts-left {
+    text-align: left;
+}
+.ts-right {
+    text-align: right;
+}
+.action-bar {
+    display: flex;
+    gap: 8px;
+    margin: 6px 6px 0;
+}
+.action-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid #dce7ff;
+    background: #eef4ff;
+    color: var(--brand);
+}
+.source-chip {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #eef4ff;
+    color: var(--brand);
+    font-weight: 800;
+    font-size: 12px;
+    border: 1px solid #dce7ff;
+    margin: 6px 6px 0 0;
+}
+.source-chip a {
+    color: var(--brand);
+    text-decoration: none;
+}
+.source-chip a:hover {
+    text-decoration: underline;
+}
+.chat-dock {
+    position: absolute !important;
+    left: 50% !important;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+    transform: translateX(-50%);
+    width: 92%;
+    max-width: 370px;
+    z-index: 20;
+    filter: drop-shadow(0 10px 20px rgba(15,23,42,.18));
+}
+.chat-dock .dock-wrap {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: #ffffff;
+    border-radius: 999px;
+    padding: 8px;
+    border: 1px solid #e6ebf4;
+    box-shadow: 0 8px 24px rgba(15,23,42,.10);
+}
+.chat-dock .stTextInput > div > div {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+}
+.chat-dock input {
+    height: 44px !important;
+    padding: 0 12px !important;
+    font-size: 15px !important;
+}
+.chat-dock .send-btn > button {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px !important;
+    background: #e6efff !important;
+    color: #0b62e6 !important;
+    border: 0 !important;
+    box-shadow: inset 0 0 0 1px #d8e6ff;
+    font-weight: 800;
+}
+@media (max-width: 480px) {
+    .block-container > :first-child {
+        height: clamp(560px, 86vh, 820px);
+    }
+}
+@media (max-width: 480px) {
+    .block-container {
+        max-width: 94vw;
+    }
+}
+[data-testid="stHeader"] {
+    background: transparent !important;
+    border: 0 !important;
+}
+.chat-dock:empty,
+.chat-dock .dock-wrap:empty {
+    display: none !important;
+}
+.chat-dock .dock-wrap > *:not(form) {
+    display: none !important;
+}
+.chat-dock input {
+    background: #ffffff !important;
+    color: #1f2a44 !important;
+}
+.chat-dock {
+    position: absolute !important;
+    left: 50% !important;
+    bottom: 16px !important;
+    transform: translateX(-50%);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -353,6 +333,8 @@ def _ensure_vertex_init():
             import vertexai
             vertexai.init(project=project, location=location)
             _vertex_inited = True
+        except Exception as e:
+            st.error(f"Failed to initialize Vertex AI: {e}")
 
 def _get_gen_model():
     global _gen_model
@@ -367,7 +349,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = [{
         "role": "assistant",
         "content": "안녕하세요! ✅ 연금/주식 뉴스를 근거로 QnA 도와드려요. 무엇이든 물어보세요.",
-        "sources": [], "ts": format_timestamp(datetime.now(TZ))
+        "sources": [],
+        "ts": format_timestamp(datetime.now(TZ))
     }]
 if "_preset" not in st.session_state:
     st.session_state._preset = None
@@ -495,7 +478,7 @@ def run_answer(question: str):
     _render_sources_inline(main_sources)
 
 # 제출 처리
- if submitted and user_q:
+if submitted and user_q:
     run_answer(user_q)
 elif st.session_state._preset:
     run_answer(st.session_state._preset)
