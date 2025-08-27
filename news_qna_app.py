@@ -206,26 +206,40 @@ button, .stButton>button, .stDownloadButton>button{
 [data-testid="stHeader"]{ background:transparent !important; border:0 !important; }
 
 
-/* 채팅 입력창을 '폰 스크린' 안쪽 하단에 배치 */
-.stChatInputContainer {
-  position: absolute !important;
-  bottom: 16px !important;
-  left: 50% !important;
-  transform: translateX(-50%);
-  width: 90% !important;
-  max-width: 360px !important;
-  margin: 0 auto !important;
-  z-index: 10;
+/* 기본 chat_input 아예 숨김 */
+.stChatInputContainer{ display:none !important; }
+
+/* 커스텀 입력바를 스크린 하단에 고정할 자리 */
+.block-container > :first-child{
+  position: relative !important;
+  padding-bottom: 110px !important;  /* 입력바 공간 */
 }
 
-/* 흰색 스크린 컨테이너가 기준이 되도록 relative 설정 */
-.block-container > :first-child {
-  position: relative;               /* 기준 박스 */
-  padding-bottom: 80px !important;  /* 입력창 자리 확보 */
-  border-radius: 30px !important;
-  background: #ffffff !important;
-  overflow: hidden;
+/* 커스텀 입력바 스타일 */
+.chat-dock{
+  position:absolute; left:50%; bottom:16px; transform:translateX(-50%);
+  width:92%; max-width:370px; z-index:20;
+  filter: drop-shadow(0 10px 20px rgba(15,23,42,.18));
 }
+.chat-dock .dock-wrap{
+  display:flex; gap:8px; align-items:center;
+  background:#ffffff; border-radius:999px; padding:8px; border:1px solid #e6ebf4;
+  box-shadow: 0 8px 24px rgba(15,23,42,.10);
+}
+.chat-dock .stTextInput>div>div{
+  background:transparent !important; border:0 !important;
+  border-radius:999px !important; padding:0 !important;
+}
+.chat-dock input{
+  height:44px !important; padding:0 12px !important; font-size:15px !important;
+}
+.chat-dock .send-btn>button{
+  width:40px; height:40px; border-radius:999px !important;
+  background:#e6efff !important; color:#0b62e6 !important; border:0 !important;
+  box-shadow: inset 0 0 0 1px #d8e6ff;
+  font-weight:800;
+}
+
 </style>
 <div class="_sidebtnL"></div>
 """, unsafe_allow_html=True)
