@@ -148,7 +148,7 @@ class NewsQnAService:
             distance = float(raw) if raw is not None else None
             similarity = None
             if distance is not None and "cosine" in dist_mode:
-                similarity = 1.0 - distance
+                similarity = distance
     
             docs.append({
                 "id": str(getattr(h, "id", "")),
