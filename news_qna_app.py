@@ -1,3 +1,4 @@
+# app.py
 import os, re
 from typing import List, Dict, Any, Optional
 from datetime import datetime
@@ -5,31 +6,12 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 
 # =========================
-# 기본 유틸 (함수는 "사용 전에" 정의!)
-# =========================
-TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
-
-def format_timestamp(dt: datetime) -> str:
-    return dt.astimezone(TZ).strftime("%Y년 %m월 %d일 %p %I:%M").replace("AM", "오전").replace("PM", "오후")
-
-def _md(html: str):
-    st.markdown(html, unsafe_allow_html=True)
-
-def _escape_html(s: Optional[str]) -> str:
-    return (s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
-
-def _linkify(s: str) -> str:
-    # 정규식 역슬래시 과도 이스케이프 수정
-    return re.sub(r"(https?://[\w\-\./%#\?=&:+,~]+)", r'<a href="\1" target="_blank">\1</a>', s or "")
-
-
-# =========================
-# 페이지 설정
+# 페이지 설정 (최초 Streamlit 호출 전/초기에!)
 # =========================
 st.set_page_config(page_title="우리 연금술사", page_icon="📰", layout="centered")
 
 # =========================
-# 환경 변수 설정
+# ENV from st.secrets → os.environ
 # =========================
 def _prime_env_from_secrets():
     try:
@@ -44,6 +26,79 @@ def _prime_env_from_secrets():
         st.error(f"Error loading secrets: {e}")
 
 _prime_env_from_secrets()
+
+# =========================
+# 기본 유틸
+# =========================
+TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
+
+def format_timestamp(dt: datetime) -> str:
+    return dt.astimezone(TZ).strftime("%Y년 %m월 %d일 %p %I:%M").replace("AM", "오전").replace("PM", "오후")
+
+def _escape_html(s: Optional[str]) -> str:
+    return (s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+
+def _linkify(s: str) -> str:
+    # 과도 이스케이프 수정 (\w, \? 등)
+    return re.sub(r"(https?://[\w\-\./%#\?=&:+,~]+)", r'<a href="\1" target="_blank">\1</a>', s or "")
+
+def _render_messages_block(messages: List[Dict[str, Any]]):
+    # 메시지들을 **하나의 HTML 블록**으로 만들어 한 번만 렌더
+    # (Streamlit이 element-container로 쪼개지 못하게 -> 내부 스크롤 정상 동작)
+    parts = []
+    for i, m in enumerate(messages):
+        role = m.get("role", "assistant")
+        row = "user-row" if role == "user" else "bot-row"
+        bub = "user-bubble" if role == "user" else "bot-bubble"
+        text_raw = m.get("content", "") or ""
+        text = _linkify(_escape_html(text_raw))
+        ts = _escape_html(m.get("ts", ""))
+
+        # 말풍선 + 타임스탬프 + 복사 버튼
+        parts.append(
+            f'<div class="chat-row {row}"><div class="chat-bubble {bub}">{text}</div></div>'
+            f'<div class="timestamp {"ts-right" if role=="user" else "ts-left"}">{ts}</div>'
+            f'<div class="action-bar"><button class="action-btn copy-btn" '
+            f'data-text="{_escape_html(text_raw)}">📋 복사</button></div>'
+        )
+
+        # 소스칩(assistant에만 표시)
+        if role == "assistant":
+            srcs = m.get("sources") or []
+            if srcs:
+                chips = []
+                for j, d in enumerate(srcs, 1):
+                    md = (d.get("metadata") or {}) if isinstance(d, dict) else {}
+                    title = md.get("title") or md.get("path") or md.get("source") or f"문서 {j}"
+                    url = md.get("url")
+                    try:
+                        score = float(d.get("score", 0.0) or 0.0)
+                    except Exception:
+                        score = 0.0
+                    label = f"#{j} {title} · {score:.3f}"
+                    if url:
+                        chips.append(f'<span class="source-chip"><a href="{url}" target="_blank">{label}</a></span>')
+                    else:
+                        chips.append(f'<span class="source-chip">{label}</span>')
+                parts.append(f'<div class="src-row">{"".join(chips)}</div>')
+
+    html = (
+        '<div class="screen-shell">'
+        '<div class="screen-body">'
+        + "".join(parts) +
+        '</div></div>'
+        # 복사 버튼 이벤트 위임(문서에 한 번만)
+        '<script>(function(){'
+        ' document.addEventListener("click", function(ev){'
+        '   var b = ev.target.closest(".copy-btn"); if(!b) return;'
+        '   var txt = b.getAttribute("data-text") || "";'
+        '   var ta = document.createElement("textarea"); ta.value = txt;'
+        '   document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");}catch(e){};'
+        '   document.body.removeChild(ta);'
+        ' }, true);'
+        '})();</script>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 # =========================
 # CSS
@@ -67,29 +122,31 @@ html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-tes
   border-radius: 30px !important;
   padding: 12px 14px 14px !important;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.65);
-  overflow: hidden; /* 바깥은 숨기고 안쪽에서 스크롤 */
+  overflow: hidden; /* 바깥은 숨기고, 내부에서 스크롤 */
 }
 
-/* --- 스크롤 고정 구조: 부모 100% + 내부만 스크롤 --- */
+/* 내부 스크롤 구조 */
 .screen-shell{
   position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
 }
+/* :has 지원 브라우저에서 부모 element-container 높이 보장 */
 .block-container > :first-child .element-container:has(.screen-shell){
   height: 100%;
 }
 
 .screen-body{
-  flex: 1 1 auto;           /* 남은 공간을 채움 */
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;          /* 여기서 스크롤 생성 */
+  overflow-y: auto;            /* 여기서 스크롤 생성 */
   padding: 8px 10px 120px;
   padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
   scroll-padding-bottom: 120px;
-  scrollbar-width: thin; scrollbar-color: #c0c7d6 #f0f4ff;
+  scrollbar-width: thin; 
+  scrollbar-color: #c0c7d6 #f0f4ff;
 }
 .screen-body::-webkit-scrollbar{ width:8px; }
 .screen-body::-webkit-scrollbar-track{ background:#f0f4ff; border-radius:8px; }
@@ -100,7 +157,6 @@ html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-tes
 .stChatInputContainer{ display:none !important; }
 a{ color: var(--brand) !important; }
 hr{ border:0; border-top:1px solid var(--line) !important; }
-
 button, .stButton > button, .stDownloadButton > button{
   background: var(--chip) !important; border:1px solid #dce7ff !important; color:var(--brand) !important;
   border-radius:999px !important; font-weight:700 !important; padding:8px 14px !important; min-height:auto !important; line-height:1.1 !important;
@@ -113,7 +169,7 @@ button, .stButton > button, .stDownloadButton > button{
 .user-row{ justify-content:flex-end; }
 .bot-row{ justify-content:flex-start; align-items:flex-start !important; }
 .chat-bubble{
-  max-width:86%; padding:14px 16px; border-radius:18px; line-height:1.65; font-size:16px; background:#fff; color:var(--text);
+  max-width:86%; padding:14px 16px; border-radius:18px; line-height:1.65; font-size:16px; background:#ffffff; color:var(--text);
   border:1px solid var(--line); border-bottom-left-radius:8px; box-shadow:0 10px 22px rgba(15,23,42,.08); white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word;
 }
 .bot-row .chat-bubble{ position:relative; margin-left:54px; margin-top:2px; }
@@ -138,7 +194,7 @@ button, .stButton > button, .stDownloadButton > button{
 .source-chip a{ color:var(--brand); text-decoration:none; }
 .source-chip a:hover{ text-decoration:underline; }
 
-/* 하단 입력 Dock은 absolute 고정 */
+/* 입력 Dock: 절대 고정 (같은 큰 컨테이너 기준) */
 .chat-dock{
   position:absolute !important; left:50% !important; bottom:16px !important; transform:translateX(-50%);
   width:92%; max-width:370px; z-index:20; filter: drop-shadow(0 10px 20px rgba(15,23,42,.18));
@@ -163,13 +219,13 @@ button, .stButton > button, .stDownloadButton > button{
 </style>
 """, unsafe_allow_html=True)
 
-# :has 미지원 브라우저 폴백 (부모 높이 100%)
+# :has 미지원 브라우저 폴백 (부모 element-container 높이 100%)
 st.markdown("""
 <script>
 (function(){
   document.querySelectorAll('.screen-shell').forEach(function(shell){
     var parent = shell.closest('.element-container') || shell.parentElement;
-    if (parent && getComputedStyle(parent).height === 'auto') {
+    if (parent && (getComputedStyle(parent).height === 'auto' || !parent.style.height)) {
       parent.style.height = '100%';
     }
   });
@@ -178,7 +234,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================
-# 백엔드 서비스 로드
+# 백엔드 서비스 (선택)
 # =========================
 try:
     from news_qna_service import NewsQnAService
@@ -210,7 +266,7 @@ def get_service():
 svc = get_service()
 
 # =========================
-# Vertex AI 초기화 & 모델
+# Vertex AI (생성모델만)
 # =========================
 _vertex_inited = False
 _gen_model = None
@@ -236,8 +292,7 @@ def _ensure_vertex_init() -> bool:
 def _get_gen_model():
     global _gen_model
     if _gen_model is None:
-        ok = _ensure_vertex_init()
-        if not ok:
+        if not _ensure_vertex_init():
             return None
         try:
             from vertexai.generative_models import GenerativeModel
@@ -246,6 +301,27 @@ def _get_gen_model():
             st.error(f"생성 모델 로딩 실패: {e}")
             return None
     return _gen_model
+
+def generate_with_context(question: str, main_sources: List[Dict[str,Any]]) -> str:
+    def snip(t, n=1800): return re.sub(r"\s+"," ",t or "")[:n]
+    ctx = "\n\n".join([snip(d.get("content","")) for d in main_sources])[:10000]
+    sys = (
+        "당신은 주식/연금 뉴스를 바탕으로 답하는 분석가입니다. "
+        "컨텍스트 근거로 한국어로 정확하게 답하세요. "
+        "근거가 부족하면 추정하지 말고 '관련된 정보를 찾을 수 없습니다.'라고 답하세요. "
+        "핵심은 **굵게** 강조하세요."
+    )
+    prompt = f"{sys}\n\n[컨텍스트]\n{ctx}\n\n[질문]\n{question}"
+
+    model = _get_gen_model()
+    if model is None:
+        return "생성 모델 초기화에 실패했습니다. 환경 변수와 Vertex 설정을 확인해 주세요."
+    try:
+        from vertexai.generative_models import GenerationConfig
+        resp = model.generate_content(prompt, generation_config=GenerationConfig(temperature=0.2, max_output_tokens=1024))
+        return (getattr(resp, "text", None) or "").strip() or "관련된 정보를 찾을 수 없습니다."
+    except Exception as e:
+        return f"답변 생성 중 오류가 발생했습니다: {e}"
 
 # =========================
 # 세션 상태
@@ -261,37 +337,12 @@ if "_preset" not in st.session_state:
     st.session_state._preset = None
 
 # =========================
-# 답변 생성 함수
+# 헤더/프리셋
 # =========================
-def generate_with_context(question: str, main_sources: List[Dict[str,Any]]) -> str:
-    def snip(t, n=1800): return re.sub(r"\s+"," ",t or "")[:n]
-    ctx = "\n\n".join([snip(d.get("content","")) for d in main_sources])[:10000]
-    sys = (
-        "당신은 주식/연금 뉴스를 바탕으로 답하는 분석가입니다. "
-        "컨텍스트 근거로 한국어로 정확하게 답하세요. "
-        "근거가 부족하면 추정하지 말고 '관련된 정보를 찾을 수 없습니다.'라고 답하세요. "
-        "핵심은 **굵게** 강조하세요."
-    )
-    prompt = f"{sys}\n\n[컨텍스트]\n{ctx}\n\n[질문]\n{question}"
-
-    model = _get_gen_model()
-    if model is None:
-        return "생성 모델 초기화에 실패했습니다. 환경 변수와 Vertex 설정을 확인해 주세요."
-
-    try:
-        from vertexai.generative_models import GenerationConfig
-        resp = model.generate_content(prompt, generation_config=GenerationConfig(temperature=0.2, max_output_tokens=1024))
-        return (getattr(resp, "text", None) or "").strip() or "관련된 정보를 찾을 수 없습니다."
-    except Exception as e:
-        return f"답변 생성 중 오류가 발생했습니다: {e}"
-
-# =========================
-# UI 렌더링
-# =========================
-c1, c2 = st.columns([1.5, 0.16])
-with c1:
-    _md('<div class="chat-header"><div class="chat-title">🧙‍♂️ 우리 연금술사</div></div>')
-with c2:
+head_l, head_r = st.columns([1.5, 0.16])
+with head_l:
+    st.markdown('<div class="chat-header"><div class="chat-title">🧙‍♂️ 우리 연금술사</div></div>', unsafe_allow_html=True)
+with head_r:
     if st.button("🔄", help="대화 초기화", use_container_width=True):
         st.session_state.messages = [{
             "role": "assistant",
@@ -302,7 +353,6 @@ with c2:
         st.session_state._preset = None
         st.rerun()
 
-# 프리셋 버튼
 cols = st.columns(3)
 for i, label in enumerate(["우리금융지주 전망?", "호텔신라 실적 포인트?", "배당주 포트 제안"]):
     with cols[i]:
@@ -310,56 +360,12 @@ for i, label in enumerate(["우리금융지주 전망?", "호텔신라 실적 �
             st.session_state._preset = label
 st.divider()
 
-def _render_messages_block(messages: List[Dict[str, Any]]):
-    def chip_html(sources: List[Dict[str,Any]]):
-        if not sources: 
-            return ""
-        chips = []
-        for i, d in enumerate(sources, 1):
-            m = (d.get("metadata") or {}) if isinstance(d, dict) else {}
-            title = m.get("title") or m.get("path") or m.get("source") or f"문서 {i}"
-            url = m.get("url")
-            try: score = float(d.get("score", 0.0) or 0.0)
-            except: score = 0.0
-            label = f"#{i} {title} · {score:.3f}"
-            chips.append(
-                f'<span class="source-chip">'
-                + (f'<a href="{url}" target="_blank">{label}</a>' if url else label)
-                + '</span>'
-            )
-        return f'<div class="src-row">{"".join(chips)}</div>'
+# =========================
+# 메시지 영역 (단일 블록 렌더) + 입력 Dock
+# =========================
+_render_messages_block(st.session_state.messages)
 
-    parts = []
-    for i, m in enumerate(messages):
-        role = m.get("role","assistant")
-        row = "user-row" if role=="user" else "bot-row"
-        bub = "user-bubble" if role=="user" else "bot-bubble"
-        text = _linkify(_escape_html(m.get("content","")))
-        ts = _escape_html(m.get("ts",""))
-        # 말풍선 + 타임스탬프 + 복사 버튼(이벤트 위임)
-        parts.append(
-            f'<div class="chat-row {row}"><div class="chat-bubble {bub}">{text}</div></div>'
-            f'<div class="timestamp {"ts-right" if role=="user" else "ts-left"}">{ts}</div>'
-            f'<div class="action-bar"><button class="action-btn copy-btn" data-text="{text}">📋 복사</button></div>'
-            + (chip_html(m.get("sources") or []) if role=="assistant" else "")
-        )
-    html = (
-        '<div class="screen-shell">'
-        '<div class="screen-body">'
-        + "".join(parts) +
-        '</div></div>'
-        # 복사 버튼 이벤트 위임(단 한 번만 붙이기)
-        '<script>(function(){'
-        '  document.addEventListener("click", async function(ev){'
-        '    const b = ev.target.closest(".copy-btn"); if(!b) return;'
-        '    const tmp = document.createElement("textarea"); tmp.value = b.getAttribute("data-text").replace(/<[^>]+>/g,"");'
-        '    document.body.appendChild(tmp); tmp.select(); try{document.execCommand("copy");}catch(e){}; document.body.removeChild(tmp);'
-        '  }, true);'
-        '})();</script>'
-    )
-    st.markdown(html, unsafe_allow_html=True)
-
-# 입력 Dock
+# Dock (폼)
 st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
 with st.form("chat_form", clear_on_submit=True):
     c1, c2 = st.columns([1, 0.18])
@@ -367,16 +373,12 @@ with st.form("chat_form", clear_on_submit=True):
     submitted = c2.form_submit_button("➤", use_container_width=True)
 st.markdown('</div></div>', unsafe_allow_html=True)
 
-# ====== 스크롤 구조 래퍼 닫기 ======
-st.markdown('</div></div>', unsafe_allow_html=True)
-
 # =========================
-# QnA 실행
+# 제출 처리
 # =========================
 def run_answer(question: str):
-    if not question: return
     now = format_timestamp(datetime.now(TZ))
-    st.session_state.messages.append({"role":"user","content":question,"sources":[],"ts":now})
+    st.session_state.messages.append({"role":"user","content":question,"sources":[], "ts":now})
 
     with st.spinner("검색/생성 중…"):
         main = {}
@@ -387,16 +389,15 @@ def run_answer(question: str):
                 main = svc.answer(question) or {}
             except Exception as e:
                 st.error(f"svc.answer 오류: {e}")
+                main = {}
+
         main_sources = main.get("source_documents", []) or []
         answer = generate_with_context(question, main_sources)
 
     now2 = format_timestamp(datetime.now(TZ))
     st.session_state.messages.append({"role":"assistant","content":answer,"sources":main_sources,"ts":now2})
+    # Streamlit은 submit 후 전체 재실행하므로, 위에 있는 단일 블록 렌더가 최신 messages를 표시함.
 
-    # 👉 메시지 전체를 다시 한 번에 렌더
-    _render_messages_block(st.session_state.messages)
-
-# 제출 처리
 if 'submitted' in locals() and submitted and user_q:
     run_answer(user_q)
 elif st.session_state._preset:
