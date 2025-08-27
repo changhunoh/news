@@ -243,20 +243,96 @@ render_messages(st.session_state["messages"], messages_ph)
 # 사이드바: 바로 붙여넣기용 덤프
 # ------------------------
 with st.sidebar.expander("🧩 debug dump (붙여넣어 주시면 돼요)"):
+    st.write("svc is None? ->", svc is None)
+
     q = st.text_input("테스트 질의", "삼성전자 전망", key="dump_q")
+
+    # 1) svc.answer() 원형 출력
     if st.button("answer() 호출", key="dump_btn"):
         try:
-            res = svc.answer(q) if svc else {}
+            if svc is None:
+                st.warning("svc 가 None 입니다. news_qna_service 임포트/환경변수 확인 필요.")
+                res = {}
+            else:
+                res = svc.answer(q) or {}
+            st.write("type(res):", type(res))
+            if isinstance(res, dict):
+                st.write("keys:", list(res.keys()))
+                srcs = (res.get("source_documents") or res.get("sources") or res.get("docs") or [])
+                st.write("num sources:", len(srcs))
+                if srcs:
+                    s0 = srcs[0]
+                    st.write("source[0] keys:", list(s0.keys()) if isinstance(s0, dict) else type(s0))
+                    md = (s0.get("metadata") or {}) if isinstance(s0, dict) else {}
+                    st.write("metadata keys:", list(md.keys()))
+                    # 안전 추출
+                    txt = (
+                        s0.get("content") or s0.get("page_content") or s0.get("text")
+                        or (s0.get("metadata") or {}).get("content") or ""
+                    )
+                    st.code((txt[:600] + (" …" if len(txt) > 600 else "")))
+            else:
+                st.write("res:", res)
         except Exception as e:
-            res = {"error": str(e)}
-        st.write("keys:", list(res.keys()) if isinstance(res, dict) else type(res))
-        srcs = (res.get("source_documents") or res.get("sources") or res.get("docs") or []) if isinstance(res, dict) else []
-        st.write("num sources:", len(srcs))
-        if srcs:
-            s0 = srcs[0]
-            st.write("source[0] keys:", list(s0.keys()) if isinstance(s0, dict) else type(s0))
-            md = (s0.get("metadata") or {}) if isinstance(s0, dict) else {}
-            st.write("metadata keys:", list(md.keys()))
-            txt = (s0.get("content") or s0.get("page_content") or s0.get("text")
-                   or (s0.get("metadata") or {}).get("content") or "")
-            st.code((txt[:600] + (" …" if len(txt) > 600 else "")))
+            st.exception(e)
+
+    # 2) svc 우회: Vertex 임베딩 + Qdrant 직접 검색(검색단만 점검)
+    if st.button("Qdrant 직접 검색(LLM 제외)", key="raw_search_btn"):
+        try:
+            import vertexai
+            from vertexai.language_models import TextEmbeddingModel
+            project = os.getenv("GOOGLE_CLOUD_PROJECT")
+            location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+            if project:
+                vertexai.init(project=project, location=location)
+            emb_model_name = os.getenv("EMBED_MODEL_NAME", "gemini-embedding-001")
+            emb_model = TextEmbeddingModel.from_pretrained(emb_model_name)
+            qv = emb_model.get_embeddings([q])[0].values  # 3072 차원
+
+            from qdrant_client import models
+            hits = client.search(
+                collection_name=col,
+                query_vector=qv,
+                limit=int(os.getenv("DEFAULT_TOP_K", "8")),
+                with_payload=True,
+                with_vectors=False,
+            )
+            st.write("검색 결과 개수:", len(hits))
+
+            # 컬렉션 distance 읽기 (cosine/dot/euclid)
+            try:
+                params = info.config.params
+                dist_mode = str(params.vectors.distance).lower()
+            except Exception:
+                dist_mode = "unknown"
+
+            for i, h in enumerate(hits[:5], 1):
+                payload = h.payload or {}
+                # qdrant_client는 보통 distance를 score 속성에 담아줌
+                dist = float(getattr(h, "score", 0.0))
+                sim = (1.0 - dist) if "cosine" in dist_mode else None
+
+                title = (
+                    payload.get("title") or payload.get("path") or
+                    payload.get("source") or payload.get("file_name") or f"문서 {i}"
+                )
+                url = payload.get("url") or payload.get("link")
+                # 당신 DB는 payload = { "doc": ..., "metadata": {...} } 라고 했죠
+                doc = payload.get("doc")
+                if isinstance(doc, dict):
+                    text = doc.get("content") or doc.get("text") or doc.get("page_content") or ""
+                elif isinstance(doc, str):
+                    text = doc
+                else:
+                    text = payload.get("content") or payload.get("text") or ""
+
+                head = f"**#{i} {title}**"
+                if sim is not None:
+                    head += f"  | sim={sim:.4f} (dist={dist:.4f}, {dist_mode})"
+                else:
+                    head += f"  | dist={dist:.4f} ({dist_mode})"
+                st.markdown(head)
+                if url: st.markdown(f"[원문]({url})")
+                st.code((text[:600] + (" …" if len(text) > 600 else "")))
+        except Exception as e:
+            st.exception(e)
