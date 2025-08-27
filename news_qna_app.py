@@ -101,6 +101,10 @@ with st.form("chat_form", clear_on_submit=True):
 
 if submitted and user_q.strip():
     run_answer(user_q)
+    try:
+        st.rerun()
+    except AttributeError:
+        st.experimental_rerun()
 
 # 마지막 안전 렌더 (최초 로드/새로고침용)
 render_messages(st.session_state["messages"], messages_ph)
