@@ -19,6 +19,14 @@ def _linkify(s: str) -> str:
 st.sidebar.write("COLLECTION_NAME =", os.getenv("COLLECTION_NAME"))
 st.sidebar.write("EMBED_MODEL_NAME =", os.getenv("EMBED_MODEL_NAME"))
 st.sidebar.write("EMBED_DIM =", os.getenv("EMBED_DIM"))
+
+from qdrant_client import QdrantClient
+client = QdrantClient(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_API_KEY"))
+col = os.getenv("COLLECTION_NAME","stock_news")
+info = client.get_collection(col)
+st.sidebar.write("Qdrant vector_size =", info.config.params.vectors.size)
+cnt = client.count(col, exact=True).count
+st.sidebar.write("Qdrant points =", cnt)
 # (선택) 백엔드
 try:
     from news_qna_service import NewsQnAService
