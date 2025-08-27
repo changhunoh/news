@@ -168,33 +168,7 @@ def render_messages(msgs, placeholder):
 # ------------------------
 st.title("🧙‍♂️ 우리 연금술사")
 messages_ph = st.empty()
-"""
-# ------------------------
-# 생성 중 처리
-# ------------------------
-if st.session_state.get("generating"):
-    q = st.session_state.get("pending_question","")
-    idx = st.session_state.get("pending_idx")
-    sources, ans = [], "관련 정보를 찾을 수 없습니다."
-    try:
-        if svc:
-            result = svc.answer(q) or {}
-            ans = (result.get("answer") or result.get("content") or "").strip() or ans
-            sources = (result.get("source_documents") or result.get("sources") or result.get("docs") or [])
-        else:
-            ans = f"데모 응답: '{q}'에 대한 분석 결과는 준비 중입니다."
-    except Exception as e:
-        ans = f"오류 발생: {e}"
 
-    if idx is not None and 0 <= idx < len(st.session_state["messages"]):
-        st.session_state["messages"][idx] = {
-            "role":"assistant","content":ans,"sources":sources,"ts":fmt_ts(datetime.now(TZ))
-        }
-    st.session_state["generating"]=False
-    st.session_state["pending_idx"]=None
-    st.session_state["pending_question"]=""
-    st.rerun()
-"""
 # ------------------------
 # 입력 폼
 # ------------------------
