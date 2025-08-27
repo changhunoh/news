@@ -139,11 +139,22 @@ html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-tes
   flex:1 1 auto; min-height:0; overflow-y:auto; touch-action: pan-y; -webkit-overflow-scrolling: touch;
   padding:8px 10px 12px; scrollbar-width:thin; scrollbar-color:#c0c7d6 #f0f4ff;
 }
+/* 헤더가 위에 고정되므로 본문은 약간 위쪽 패딩 추가 */
+.screen-body{
+  padding-top: 8px;   /* 기존 padding에 +8px 성격, 중복이면 최종값만 유지됩니다 */
+}
 .screen-body::-webkit-scrollbar{ width:8px; }
 .screen-body::-webkit-scrollbar-track{ background:#f0f4ff; border-radius:8px; }
 .screen-body::-webkit-scrollbar-thumb{ background:#c0c7d6; border-radius:8px; }
 .screen-body::-webkit-scrollbar-thumb:hover{ background:#a0a7b6; }
 .screen-body{ overscroll-behavior: contain; }
+
+/* 프리셋 버튼 포커스 링이 헤더에 겹쳐 보이지 않도록 */
+.stButton > button{
+  position: relative;
+  z-index: 1;
+  outline-offset: 2px;
+}
 
 /* 도크 가림 방지 여백 */
 .screen-spacer{ flex:0 0 var(--dock-h); height:var(--dock-h); }
@@ -159,7 +170,15 @@ button, .stButton > button, .stDownloadButton > button{
 .st-expander, .st-expander div[role="button"]{ background:#fff !important; border:1px solid var(--line) !important; color:var(--text) !important; }
 
 /* 헤더 */
-.chat-header{ display:flex; align-items:center; justify-content:space-between; margin:8px 6px 12px; }
+.chat-header{
+  position: sticky;   /* ✅ 스크롤 중에도 상단 고정 */
+  top: 0;             /* 카드 내부 최상단 */
+  z-index: 20;        /* 말풍선/버튼 위에 오도록 */
+  background: var(--screen);         /* 겹쳐 보여도 배경이 받쳐주게 */
+  padding: 10px 6px 12px;
+  margin: 0 0 8px;    /* 본문과 간격 */
+  border-bottom: 1px solid var(--line);
+}
 .chat-title{ font-size:20px; font-weight:900; color:var(--text); letter-spacing:.2px; }
 .reset-btn > button{ width:38px; height:38px; border-radius:999px !important; background:var(--chip) !important; color:var(--brand) !important; border:1px solid #dce7ff !important; box-shadow:0 4px 12px rgba(23,87,255,.08); }
 
