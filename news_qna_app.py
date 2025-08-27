@@ -42,26 +42,6 @@ html,body,[data-testid="stAppViewContainer"],section.main,.stMain,[data-testid="
   color: var(--text) !important;
 }
 
-/* ===== Phone Frame ===== */
-.block-container{
-  max-width: 420px;
-  margin: 28px auto 56px !important;
-  padding: 22px 14px 22px !important;
-  background: var(--bezel) !important;
-  border-radius: 42px !important;
-  box-shadow: 0 26px 64px rgba(11,14,23,.35), 0 12px 28px rgba(11,14,23,.22) !important;
-  border: 1px solid rgba(255,255,255,.06) !important;
-  position: relative;
-}
-
-/* 노치 */
-.block-container::before{
-  content:"";
-  position:absolute; top:12px; left:50%; transform:translateX(-50%);
-  width:120px; height:20px; background:var(--bezel); border-radius:12px;
-  box-shadow: 0 2px 4px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.06);
-  z-index: 6;
-}
 
 
 /* 스크린(내용 래퍼) */
