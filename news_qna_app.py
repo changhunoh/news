@@ -157,6 +157,23 @@ button, .stButton>button, .stDownloadButton>button{
   .block-container{ max-width: 94vw; }
 }
 [data-testid="stHeader"]{ background:transparent !important; border:0 !important; }
+
+/* 빈 입력바 래퍼가 렌더되면 숨김 */
+.chat-dock:empty,
+.chat-dock .dock-wrap:empty{ display:none !important; }
+
+/* 폼이 비정상적으로 끊겨도 '내용 없는 캡슐' 안 보이게 */
+.chat-dock .dock-wrap > *:not(form){ display:none !important; }
+
+/* 다크톤으로 보일 때 강제 라이트 고정 */
+.chat-dock input{
+  background:#ffffff !important;
+  color:#1f2a44 !important;
+}
+
+/* 혹시 예전 sticky 버전 잔재가 남아 있다면 무효화 */
+.chat-dock{ position:absolute !important; left:50% !important; bottom:16px !important; transform:translateX(-50%); }
+
 </style>
 """, unsafe_allow_html=True)
 
