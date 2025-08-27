@@ -43,7 +43,6 @@ html, body,
   padding: 18px 12px 20px !important;
 
   /* 프레임(베젤) */
-  background: #0f1220 !important;              /* 어두운 베젤 색 */
   border-radius: 36px !important;               /* 둥근 모서리(폰 느낌) */
   box-shadow:
     0 24px 60px rgba(15,18,32,0.30),
