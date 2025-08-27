@@ -300,7 +300,7 @@ def generate_with_context(question: str,
     ctx="\n\n".join([snip(d.get("content","")) for d in merged])[:10000]
     sys=(
         "당신은 주식/연금 뉴스를 바탕으로 답하는 분석가입니다. "
-        "컨텍스트 근거로 한국어로 간결하고 정확하게 답하세요. "
+        "컨텍스트 근거로 한국어로 정확하게 답하세요. "
         "근거가 부족하면 추정하지 말고 '관련된 정보를 찾을 수 없습니다.'라고 답하세요. "
         "핵심은 **굵게** 강조하세요."
     )
@@ -316,7 +316,7 @@ def generate_with_context(question: str,
 # Header (제목 + 우측 회전 초기화)
 # =========================
 c1, c2 = st.columns([1, 0.16])
-with c1: _md('<div class="chat-header"><div class="chat-title">💬 나의 퇴직연금 챗봇</div></div>')
+with c1: _md('<div class="chat-header"><div class="chat-title">🧙‍♂️ 우리 연금술사</div></div>')
 with c2:
     if st.button("🔄", help="대화 초기화", use_container_width=True):
         st.session_state.messages=[{
@@ -333,13 +333,6 @@ for i, label in enumerate(["우리금융지주 전망?", "호텔신라 실적 �
     with cols[i]:
         if st.button(label, use_container_width=True):
             st.session_state._preset = label
-
-with st.expander("📎 파일 업로드(임시 인덱스)", expanded=False):
-    files = st.file_uploader("txt, md, csv, pdf, docx 지원", type=["txt","md","csv","pdf","docx"], accept_multiple_files=True)
-    if st.button("임시 인덱스에 추가"):
-        st.success(f"세그먼트 {add_uploaded_to_temp_index(files or [])}개 추가됨")
-    st.caption(f"세션 보관 중: {len(st.session_state.temp_docs)} 세그먼트")
-
 st.divider()
 
 # =========================
