@@ -78,10 +78,16 @@ def _build_messages_html(messages: List[Dict[str, Any]]) -> str:
                         md = (d.get("metadata") or {}) if isinstance(d, dict) else {}
                         title = md.get("title") or md.get("path") or md.get("source") or f"문서 {j}"
                         url   = md.get("url"); 
-                        try: score = float(d.get("score", 0.0) or 0.0)
-                        except: score = 0.0
+                        try: 
+                            score = float(d.get("score", 0.0) or 0.0)
+                        except: 
+                            score = 0.0
                         label = f"#{j} {title} · {score:.3f}"
-                        chips.append(f'<span class="source-chip">{f"<a href=\\"{url}\\" target=\\"_blank\\">{label}</a>" if url else label}</span>')
+                        if url:
+                            link_html = f'<a href="{url}" target="_blank">{label}</a>'
+                        else:
+                            link_html = label
+                        chips.append(f'<span class="source-chip">{link_html}</span>')
                     parts.append(f'<div class="src-row">{"".join(chips)}</div>')
 
     return (
