@@ -206,14 +206,13 @@ messages_ph = st.empty()
 # ------------------------
 # ---- 채팅폼 (제출 먼저 처리 → 같은 런에서 두 번 렌더) ----
 
-# --- Dock 입력 영역 (그대로 사용) ---
+# --- Dock 입력 영역 (그대로 사용) --- on_change=_submit_on_enter 제외            
 st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
 c1, c2 = st.columns([1, 0.14])
 user_q = c1.text_input(
     "질문을 입력하세요...",
     key="chat_input",
     label_visibility="collapsed",
-    on_change=_submit_on_enter,            # ← Enter 전송
     placeholder="예) 삼성전자 전망 알려줘"
 )
 clicked = c2.button("➤", use_container_width=True, disabled=st.session_state.is_generating)
