@@ -391,9 +391,7 @@ for i, label in enumerate(["우리금융지주 전망?", "호텔신라 실적 �
             st.session_state._preset = label
 st.divider()
 
-# =========================
-# Render history
-# =========================
+# 대화 히스토리 렌더
 for i, m in enumerate(st.session_state.messages):
     _render_message(m["content"], m["role"], m.get("ts",""))
     if m["role"]=="assistant":
@@ -428,12 +426,6 @@ user_q = None
 # ===== 스크롤 영역(흰 프레임 내부) 시작 =====
 st.markdown('<div class="screen-body">', unsafe_allow_html=True)
 
-# 대화 히스토리 렌더
-for i, m in enumerate(st.session_state.messages):
-    _render_message(m["content"], m["role"], m.get("ts",""))
-    if m["role"]=="assistant":
-        _copy_button(m["content"], key=f"msg-{i}")
-        if m.get("sources"): _render_sources_inline(m["sources"])
 
 # ===== 프레임 안 하단: 커스텀 입력바(sticky) =====
 st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
