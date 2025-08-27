@@ -5,18 +5,6 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import streamlit as st
 
-# 세션 상태 초기화 (가장 먼저!)
-if "messages" not in st.session_state:
-    st.session_state["messages"] = [{
-        "role": "assistant",
-        "content": "안녕하세요! ✅ 연금/주식 뉴스를 근거로 QnA 도와드려요. 무엇이든 물어보세요.",
-        "sources": [],
-        "ts": format_timestamp(datetime.now(TZ))
-    }]
-
-if "_preset" not in st.session_state:
-    st.session_state["_preset"] = None
-
 
 # =========================
 # 페이지 설정
@@ -461,17 +449,18 @@ def generate_with_context(question: str, main_sources: List[Dict[str,Any]]) -> s
         return f"답변 생성 중 오류가 발생했습니다: {e}"
 
 # =========================
-# 세션 상태
+# 세션 상태 초기화
 # =========================
 if "messages" not in st.session_state:
-    st.session_state.messages = [{
+    st.session_state["messages"] = [{
         "role": "assistant",
         "content": "안녕하세요! ✅ 연금/주식 뉴스를 근거로 QnA 도와드려요. 무엇이든 물어보세요.",
         "sources": [],
         "ts": format_timestamp(datetime.now(TZ))
     }]
+
 if "_preset" not in st.session_state:
-    st.session_state._preset = None
+    st.session_state["_preset"] = None
 
 # =========================
 # 헤더/프리셋
