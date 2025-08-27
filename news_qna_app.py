@@ -38,24 +38,33 @@ html,body,[data-testid="stAppViewContainer"],section.main,.stMain,[data-testid="
   color: var(--text) !important;
 }
 
-/* ===== 스크린(흰 프레임) ===== */
+/* ===== 프레임(흰 영역): 화면 비율 기반 고정 높이 + 내부 스크롤 준비 ===== */
 .block-container > :first-child{
+  position: relative !important;
+  /* 화면비율 기반 높이: 최소/최대 가드 + 반응형 */
+  height: clamp(620px, 82vh, 860px);
   background: var(--screen) !important;
   border: 1px solid var(--line) !important;
   border-radius: 30px !important;
   padding: 12px 14px 14px !important;
-  min-height: 740px;
-  position: relative !important;     /* 입력바 기준 */
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.65);
-  overflow: hidden;
+  overflow: hidden; /* 스크롤은 내부 .screen-body에서 처리 */
 }
 
-/* 프레임(흰 영역) 기준 박스 + 입력창 자리 확보 */
-.block-container > :first-child{
-  position: relative !important;
-  padding-bottom: 110px !important;   /* 입력창 높이만큼 여백 */
-  overflow: hidden;
+/* ===== 프레임 내부 스크롤 영역 ===== */
+.screen-body{
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;           /* 프레임 안에서만 스크롤 */
+  padding: 8px 10px 120px;    /* 하단 입력바 공간 확보 */
+  /* iOS 안전영역 고려(있는 경우만 더함) */
+  padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+  scroll-padding-bottom: 120px; /* 앵커/포커스가 가려지지 않도록 */
 }
+
+/* ===== 프레임 하단 절대 고정 입력바 ===== */
+.stChatInputContainer{ display:none !important; } /* 기본 채팅 입력 숨김 */
 
 
 /* 링크/구분선 */
@@ -128,7 +137,7 @@ button, .stButton>button, .stDownloadButton>button{
 .chat-dock{
   position: absolute !important;
   left: 50% !important;
-  bottom: 16px !important;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
   transform: translateX(-50%);
   width: 92%; max-width: 370px;
   z-index: 20;
@@ -137,8 +146,7 @@ button, .stButton>button, .stDownloadButton>button{
 .chat-dock .dock-wrap{
   display:flex; gap:8px; align-items:center;
   background:#ffffff; border-radius:999px; padding:8px;
-  border:1px solid #e6ebf4;
-  box-shadow: 0 8px 24px rgba(15,23,42,.10);
+  border:1px solid #e6ebf4; box-shadow: 0 8px 24px rgba(15,23,42,.10);
 }
 .chat-dock .stTextInput>div>div{ background:transparent !important; border:0 !important; padding:0 !important; }
 .chat-dock input{ height:44px !important; padding:0 12px !important; font-size:15px !important; }
@@ -146,6 +154,11 @@ button, .stButton>button, .stDownloadButton>button{
   width:40px; height:40px; border-radius:999px !important;
   background:#e6efff !important; color:#0b62e6 !important; border:0 !important;
   box-shadow: inset 0 0 0 1px #d8e6ff; font-weight:800;
+}
+
+/* 소형 화면에서 살짝 더 꽉 차게 */
+@media (max-width: 480px){
+  .block-container > :first-child{ height: clamp(560px, 86vh, 820px); }
 }
 
 /* 프리셋 칩 */
@@ -414,12 +427,16 @@ for i, label in enumerate(["우리금융지주 전망?", "호텔신라 실적 �
             st.session_state._preset = label
 st.divider()
 
-# 대화 히스토리 렌더
+# 프레임 내부 스크롤 영역 시작
+st.markdown('<div class="screen-body">', unsafe_allow_html=True)
+
+# === 여기서 메시지 루프 돌려서 대화 내용 렌더 ===
 for i, m in enumerate(st.session_state.messages):
     _render_message(m["content"], m["role"], m.get("ts",""))
-    if m["role"]=="assistant":
+    if m["role"] == "assistant":
         _copy_button(m["content"], key=f"msg-{i}")
-        if m.get("sources"): _render_sources_inline(m["sources"])
+        if m.get("sources"):
+            _render_sources_inline(m["sources"])
 
 # =========================
 # Answer flow
@@ -458,7 +475,7 @@ with st.form("chat_form", clear_on_submit=True):
     submitted = c2.form_submit_button("➤", use_container_width=True)
 st.markdown('</div></div>', unsafe_allow_html=True)
 
-# ===== 스크롤 영역 끝 =====
+# 프레임 내부 스크롤 영역 닫기
 st.markdown('</div>', unsafe_allow_html=True)
 
 # 제출 처리
