@@ -509,14 +509,29 @@ def run_answer(question: str):
     _copy_button(answer, key=f"ans-{len(st.session_state.messages)}")
     _render_sources_inline(merged_sources)
 
-# 입력 + 프리셋 + 다시 생성
-q = st.chat_input(placeholder="질문을 입력하세요…", key="chat_input")
-if not q: q = st.session_state._preset
-if q:
+# ===== 입력 + 프리셋 =====
+q = st.session_state._preset  # 프리셋을 먼저 반영 (버튼 클릭 시)
+submitted = False
+user_q = None
+
+# 커스텀 입력바 (스크린 내부 하단 고정)
+dock = st.container()
+with dock:
+    st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
+    with st.form("chat_form", clear_on_submit=True):
+        c1, c2 = st.columns([1, 0.18])
+        user_q = c1.text_input("질문을 입력하세요...", key="custom_input", label_visibility="collapsed")
+        submitted = c2.form_submit_button("➤", use_container_width=True)
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+# 제출 처리
+if q:  # 프리셋이 있으면 우선 실행
     run_answer(q)
     st.session_state._preset = None
+elif submitted and user_q:
+    run_answer(user_q)
 
-# “다시 생성” 버튼
+# “다시 생성” 버튼 (그대로 유지 가능)
 if len(st.session_state.messages) >= 2:
     last_user = next((m["content"] for m in reversed(st.session_state.messages) if m["role"]=="user"), None)
     if last_user and st.button("🔁 답변 다시 생성", use_container_width=True):
