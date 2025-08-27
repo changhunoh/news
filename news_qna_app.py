@@ -295,7 +295,7 @@ def get_service():
             embed_model_name=os.getenv("EMBED_MODEL_NAME", "gemini-embedding-001"),
             gen_model_name=os.getenv("GENAI_MODEL_NAME", "gemini-2.5-pro"),
             embed_dim=int(os.getenv("EMBED_DIM", "3072")),
-            top_k=int(os.getenv("DEFAULT_TOP_K", "8")),
+            top_k=int(os.getenv("DEFAULT_TOP_K", "5")),
             use_rerank=False,
         )
     except Exception as e:
@@ -360,7 +360,7 @@ def generate_with_context(question: str, main_sources: List[Dict[str, Any]]) -> 
         from vertexai.generative_models import GenerationConfig
         resp = model.generate_content(
             prompt,
-            generation_config=GenerationConfig(temperature=0.2, max_output_tokens=1024)
+            generation_config=GenerationConfig(temperature=0.2)
         )
         return (getattr(resp, "text", None) or "").strip() or "관련된 정보를 찾을 수 없습니다."
     except Exception as e:
