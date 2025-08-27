@@ -1,80 +1,74 @@
-import os, re
+# app.py
+import os, io, re
 from typing import List, Dict, Any
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+import numpy as np
 import streamlit as st
 
-# 페이지 설정
+# =========================
+# Page config & Secrets → ENV
+# =========================
 st.set_page_config(page_title="우리 연금술사", page_icon="📰", layout="centered")
 
-# 환경 변수 설정
 def _prime_env_from_secrets():
     try:
-        if hasattr(st, 'secrets') and st.secrets:
-            for k, v in st.secrets.items():
-                os.environ.setdefault(k, str(v))
-        else:
-            st.warning("No secrets found in st.secrets. Ensure secrets are properly configured.")
-    except FileNotFoundError:
-        st.error("Secrets file not found. Please check your Streamlit configuration.")
-    except Exception as e:
-        st.error(f"Error loading secrets: {e}")
+        for k, v in st.secrets.items():
+            os.environ.setdefault(k, str(v))
+    except Exception:
+        pass
 _prime_env_from_secrets()
 
 TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
 
-# CSS (스크롤바 스타일 포함)
+# =========================
+# Global Styles (폰 프레임 + 내부 스크롤 + 프레임 하단 입력바)
+# =========================
+st.markdown('<meta name="color-scheme" content="light">', unsafe_allow_html=True)
 st.markdown("""
 <style>
 :root{
   color-scheme: light !important;
-  --brand:#0b62e6; --bezel:#0b0e17; --screen:#ffffff;
-  --line:#e6ebf4; --chip:#eef4ff; --text:#1f2a44;
+  --brand:#0b62e6; --screen:#ffffff; --line:#e6ebf4; --chip:#eef4ff; --text:#1f2a44;
 }
+
+/* 바깥 배경 */
 html,body,[data-testid="stAppViewContainer"],section.main,.stMain,[data-testid="stSidebar"]{
   background: radial-gradient(1200px 700px at 50% -220px,#f0f4ff 0%,#f6f8fb 45%,#eef1f6 100%) !important;
   color: var(--text) !important;
 }
-.block-container > :first-child{
-  position: relative !important;
-  height: clamp(620px, 82vh, 860px);
+
+/* ===== 프레임(흰 영역): 이제 #phone-frame을 기준으로 ===== */
+#phone-frame{
+  position: relative !important;             /* 입력바 absolute 기준 */
+  height: clamp(620px, 82vh, 860px);         /* 화면비율 기반 고정 느낌 */
   background: var(--screen) !important;
   border: 1px solid var(--line) !important;
   border-radius: 30px !important;
   padding: 12px 14px 14px !important;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.65);
-  overflow: hidden;
+  overflow: hidden;                           /* 실제 스크롤은 내부 .screen-body에서 */
 }
-.screen-body{
+
+/* 내부 스크롤 영역 */
+#phone-frame .screen-body{
   height: 100%;
-  display: flex;
-  flex-direction: column;
+  display: flex; flex-direction: column;
   overflow-y: auto;
-  padding: 8px 10px 120px;
+  padding: 8px 10px 120px;                    /* 하단 입력바 자리 */
   padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
   scroll-padding-bottom: 120px;
 }
-.screen-body::-webkit-scrollbar {
-  width: 8px;
-}
-.screen-body::-webkit-scrollbar-track {
-  background: #f0f4ff;
-  border-radius: 8px;
-}
-.screen-body::-webkit-scrollbar-thumb {
-  background: #c0c7d6;
-  border-radius: 8px;
-}
-.screen-body::-webkit-scrollbar-thumb:hover {
-  background: #a0a7b6;
-}
-.screen-body {
-  scrollbar-width: thin;
-  scrollbar-color: #c0c7d6 #f0f4ff;
-}
+
+/* 기본 chat_input 숨김 (커스텀만 사용) */
 .stChatInputContainer{ display:none !important; }
+
+/* 링크/구분선 */
 a{ color:var(--brand) !important; }
 hr{ border:0; border-top:1px solid var(--line) !important; }
+
+/* 버튼/칩/익스팬더 */
 button, .stButton>button, .stDownloadButton>button{
   background: var(--chip) !important; border:1px solid #dce7ff !important;
   color: var(--brand) !important; border-radius:999px !important; font-weight:700 !important;
@@ -83,6 +77,8 @@ button, .stButton>button, .stDownloadButton>button{
 .st-expander, .st-expander div[role="button"]{
   background:#fff !important; border:1px solid var(--line) !important; color:var(--text) !important;
 }
+
+/* 헤더 */
 .chat-header{ display:flex; align-items:center; justify-content:space-between; margin: 8px 6px 12px; }
 .chat-title{ font-size:20px; font-weight:900; color:var(--text); letter-spacing:.2px; }
 .reset-btn>button{
@@ -90,9 +86,11 @@ button, .stButton>button, .stDownloadButton>button{
   background:var(--chip) !important; color:var(--brand) !important; border:1px solid #dce7ff !important;
   box-shadow:0 4px 12px rgba(23,87,255,.08);
 }
+
+/* 채팅 버블 */
 .chat-row{ display:flex; margin:12px 0; align-items:flex-end; }
 .user-row{ justify-content:flex-end; }
-.bot-row{ justify-content:flex-start; align-items:flex-start !important; }
+.bot-row{ justify-content:flex-start; align-items:flex-start !important; } /* 어시 아바타 상단정렬 */
 .chat-bubble{
   max-width:86%; padding:14px 16px; border-radius:18px; line-height:1.65; font-size:16px;
   background:#ffffff; color:var(--text); border:1px solid var(--line);
@@ -111,6 +109,8 @@ button, .stButton>button, .stDownloadButton>button{
   border-bottom-right-radius:8px; border-top-left-radius:18px;
   box-shadow:0 10px 28px rgba(11,98,230,.26); font-weight:700; letter-spacing:.2px; padding:16px 18px;
 }
+
+/* 타임스탬프 / 액션바 / 출처 칩 */
 .timestamp{ font-size:12px; color:#6b7280; margin:4px 6px; }
 .ts-left{text-align:left;} .ts-right{text-align:right;}
 .action-bar{ display:flex; gap:8px; margin:6px 6px 0; }
@@ -125,7 +125,9 @@ button, .stButton>button, .stDownloadButton>button{
 }
 .source-chip a{ color:var(--brand); text-decoration:none; }
 .source-chip a:hover{ text-decoration:underline; }
-.chat-dock{
+
+/* ===== 프레임 하단 절대 고정 입력바: 기준은 #phone-frame ===== */
+#phone-frame .chat-dock{
   position: absolute !important;
   left: 50% !important;
   bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
@@ -134,38 +136,41 @@ button, .stButton>button, .stDownloadButton>button{
   z-index: 20;
   filter: drop-shadow(0 10px 20px rgba(15,23,42,.18));
 }
-.chat-dock .dock-wrap{
+#phone-frame .chat-dock .dock-wrap{
   display:flex; gap:8px; align-items:center;
   background:#ffffff; border-radius:999px; padding:8px;
   border:1px solid #e6ebf4; box-shadow: 0 8px 24px rgba(15,23,42,.10);
 }
-.chat-dock .stTextInput>div>div{ background:transparent !important; border:0 !important; padding:0 !important; }
-.chat-dock input{ height:44px !important; padding:0 12px !important; font-size:15px !important; }
-.chat-dock .send-btn>button{
+#phone-frame .chat-dock .stTextInput>div>div{ background:transparent !important; border:0 !important; padding:0 !important; }
+#phone-frame .chat-dock input{ height:44px !important; padding:0 12px !important; font-size:15px !important; }
+#phone-frame .chat-dock .send-btn>button{
   width:40px; height:40px; border-radius:999px !important;
   background:#e6efff !important; color:#0b62e6 !important; border:0 !important;
   box-shadow: inset 0 0 0 1px #d8e6ff; font-weight:800;
 }
-@media (max-width: 480px){
-  .block-container > :first-child{ height: clamp(560px, 86vh, 820px); }
-}
+
+/* 소형 화면 튜닝 */
 @media (max-width:480px){
-  .block-container{ max-width: 94vw; }
+  #phone-frame{ height: clamp(560px, 86vh, 820px); }
 }
+
+/* 프리셋 칩 */
+.stButton > button{ font-weight:800 !important; }
+.stButton{ margin: 2px 4px; }
+
+/* Streamlit 헤더 정리 */
 [data-testid="stHeader"]{ background:transparent !important; border:0 !important; }
-.chat-dock:empty,
-.chat-dock .dock-wrap:empty{ display:none !important; }
+
+/* 안전장치: 빈 입력바 래퍼 숨김 */
+.chat-dock:empty, .chat-dock .dock-wrap:empty{ display:none !important; }
 .chat-dock .dock-wrap > *:not(form){ display:none !important; }
-.chat-dock input{
-  background:#ffffff !important;
-  color:#1f2a44 !important;
-}
-.chat-dock{ position:absolute !important; left:50% !important; bottom:16px !important; transform:translateX(-50%); }
 </style>
 """, unsafe_allow_html=True)
 
-# 백엔드 서비스
-from news_qna_service import NewsQnAService
+# =========================
+# Backend service
+# =========================
+from news_qna_service import NewsQnAService  # 리포에 존재해야 함
 
 @st.cache_resource
 def get_service() -> NewsQnAService:
@@ -182,25 +187,33 @@ def get_service() -> NewsQnAService:
         use_rerank=False,
     )
 svc = get_service()
+EMBED_DIM = int(os.getenv("EMBED_DIM", "3072"))
 
-# Vertex AI 초기화 (임베딩 모델 제거, 생성 모델만 유지)
+# =========================
+# Lazy Vertex (업로드 임시 인덱스/생성 시 사용)
+# =========================
 _vertex_inited = False
+_embed_model = None
 _gen_model = None
 
 def _ensure_vertex_init():
     global _vertex_inited
     if not _vertex_inited:
         try:
-            project = os.getenv("GOOGLE_CLOUD_PROJECT")
-            location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-            if not project:
-                st.error("GOOGLE_CLOUD_PROJECT is not set in environment variables.")
-                return
             import vertexai
-            vertexai.init(project=project, location=location)
-            _vertex_inited = True
-        except Exception as e:
-            st.error(f"Failed to initialize Vertex AI: {e}")
+            vertexai.init(project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                          location=os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"))
+        except Exception:
+            pass
+        _vertex_inited = True
+
+def _get_embed_model():
+    global _embed_model
+    if _embed_model is None:
+        _ensure_vertex_init()
+        from vertexai.language_models import TextEmbeddingModel
+        _embed_model = TextEmbeddingModel.from_pretrained(os.getenv("EMBED_MODEL_NAME", "gemini-embedding-001"))
+    return _embed_model
 
 def _get_gen_model():
     global _gen_model
@@ -210,46 +223,55 @@ def _get_gen_model():
         _gen_model = GenerativeModel(os.getenv("GENAI_MODEL_NAME", "gemini-2.5-pro"))
     return _gen_model
 
-# 세션 상태
+# =========================
+# Session state
+# =========================
 if "messages" not in st.session_state:
-    st.session_state.messages = [{
+    st.session_state.messages: List[Dict[str, Any]] = [{
         "role": "assistant",
         "content": "안녕하세요! ✅ 연금/주식 뉴스를 근거로 QnA 도와드려요. 무엇이든 물어보세요.",
-        "sources": [], "ts": format_timestamp(datetime.now(TZ))
+        "sources": [], "ts": datetime.now(TZ).strftime("%Y-%m-%d %H:%M")
     }]
+if "temp_docs" not in st.session_state:
+    st.session_state.temp_docs: List[Dict[str, Any]] = []
 if "_preset" not in st.session_state:
     st.session_state._preset = None
 
-# 유틸리티 함수
-def format_timestamp(dt: datetime) -> str:
-    return dt.astimezone(TZ).strftime("%Y년 %m월 %d일 %p %I:%M").replace("AM", "오전").replace("PM", "오후")
-
+# =========================
+# Small utils
+# =========================
 def _md(html: str): st.markdown(html, unsafe_allow_html=True)
 def _escape_html(s: str) -> str:
     return (s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
 def _linkify(s: str) -> str:
     return re.sub(r"(https?://[\\w\\-\\./%#\\?=&:+,~]+)", r'<a href="\\1" target="_blank">\\1</a>', s)
+
 def _render_message(text: str, sender: str, ts: str):
     row = "user-row" if sender=="user" else "bot-row"
     bub = "user-bubble" if sender=="user" else "bot-bubble"
     safe = _linkify(_escape_html(text or ""))
     _md(f'<div class="chat-row {row}"><div class="chat-bubble {bub}">{safe}</div></div>')
     _md(f'<div class="timestamp {"ts-right" if sender=="user" else "ts-left"}">{ts}</div>')
+
 def _render_sources_inline(sources: List[Dict[str,Any]]):
     if not sources: return
-    chips = []
+    chips=[]
     for i, d in enumerate(sources, 1):
         m = d.get("metadata", {}) or {}
         title = m.get("title") or m.get("path") or m.get("source") or f"문서 {i}"
         url = m.get("url")
         score = float(d.get("score", 0.0))
         label = f"#{i} {title} · {score:.3f}"
-        chip_html = f'<span class="source-chip"><a href="{url}" target="_blank">{label}</a></span>' if url else f'<span class="source-chip">{label}</span>'
+        if url:
+            chip_html = f'<span class="source-chip"><a href="{url}" target="_blank">{label}</a></span>'
+        else:
+            chip_html = f'<span class="source-chip">{label}</span>'
         chips.append(chip_html)
     _md(f'<div class="src-row">{"".join(chips)}</div>')
+
 def _copy_button(text: str, key: str):
     from streamlit.components.v1 import html as st_html
-    safe = (text or "").replace("\\","\\\\").replace("`","\\`")
+    safe=(text or "").replace("\\","\\\\").replace("`","\\`")
     st_html(f"""
 <div class="action-bar">
   <button class="action-btn" id="copy-{key}" data-text="{safe}">📋 복사</button>
@@ -267,39 +289,118 @@ def _copy_button(text: str, key: str):
 </script>
 """, height=30)
 
-# 답변 생성
-def generate_with_context(question: str, main_sources: List[Dict[str,Any]]) -> str:
-    def snip(t, n=1800): return re.sub(r"\s+"," ",t or "")[:n]
-    ctx = "\n\n".join([snip(d.get("content","")) for d in main_sources])[:10000]
-    sys = (
+def _cosine(a: np.ndarray, b: np.ndarray) -> float:
+    if a is None or b is None: return 0.0
+    na=np.linalg.norm(a); nb=np.linalg.norm(b)
+    if na==0 or nb==0: return 0.0
+    return float(np.dot(a,b)/(na*nb))
+
+# =========================
+# Upload → Temp Index (세션)
+# =========================
+def _read_text_from_file(uploaded) -> str:
+    name=uploaded.name.lower(); data=uploaded.read()
+    try:
+        if name.endswith((".txt",".md",".csv")): return data.decode("utf-8",errors="ignore")
+        if name.endswith(".pdf"):
+            try:
+                from pypdf import PdfReader
+                return "\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(data)).pages)
+            except Exception: return ""
+        if name.endswith(".docx"):
+            try:
+                import docx; d=docx.Document(io.BytesIO(data))
+                return "\n".join(p.text for p in d.paragraphs)
+            except Exception: return ""
+    except Exception: return ""
+    return ""
+
+def _chunk(text: str, size=1200, overlap=150):
+    out,s,n=[],0,len(text or "")
+    while s<n:
+        e=min(s+size,n); out.append(text[s:e])
+        if e==n: break
+        s=max(e-overlap,s+1)
+    return out
+
+def _embed_texts(texts: List[str]) -> List[np.ndarray]:
+    from vertexai.language_models import TextEmbeddingInput
+    model=_get_embed_model()
+    embs=model.get_embeddings([TextEmbeddingInput(text=t,task_type="RETRIEVAL_DOCUMENT") for t in texts],
+                              output_dimensionality=EMBED_DIM)
+    return [np.array(e.values,dtype=np.float32) for e in embs]
+
+def add_uploaded_to_temp_index(files) -> int:
+    if not files: return 0
+    added=0
+    for f in files:
+        raw=_read_text_from_file(f)
+        if not raw: continue
+        chunks=_chunk(raw); vecs=_embed_texts(chunks)
+        for i,(seg,vec) in enumerate(zip(chunks,vecs)):
+            st.session_state.temp_docs.append({
+                "id": f"{f.name}:{i}",
+                "content": seg,
+                "metadata": {"title": f.name, "source": "upload"},
+                "emb": vec
+            }); added+=1
+    return added
+
+def search_temp_index(query: str, top_k=5) -> List[Dict[str,Any]]:
+    if not st.session_state.temp_docs: return []
+    from vertexai.language_models import TextEmbeddingInput
+    model=_get_embed_model()
+    qv=np.array(model.get_embeddings([TextEmbeddingInput(text=query,task_type="RETRIEVAL_QUERY")],
+                                     output_dimensionality=EMBED_DIM)[0].values, dtype=np.float32)
+    scored=[(_cosine(qv,d["emb"]),d) for d in st.session_state.temp_docs]
+    scored.sort(key=lambda x:x[0], reverse=True)
+    out=[]
+    for s,d in scored[:top_k]:
+        out.append({"id":d["id"],"content":d["content"],"metadata":d["metadata"],"score":float(s)})
+    return out
+
+# =========================
+# Generation with merged context
+# =========================
+def generate_with_context(question: str,
+                          main_sources: List[Dict[str,Any]],
+                          extra_sources: List[Dict[str,Any]]) -> str:
+    def snip(t,n=1800): return re.sub(r"\s+"," ",t or "")[:n]
+    merged=(extra_sources or []) + (main_sources or [])
+    ctx="\n\n".join([snip(d.get("content","")) for d in merged])[:10000]
+    sys=(
         "당신은 주식/연금 뉴스를 바탕으로 답하는 분석가입니다. "
         "컨텍스트 근거로 한국어로 정확하게 답하세요. "
         "근거가 부족하면 추정하지 말고 '관련된 정보를 찾을 수 없습니다.'라고 답하세요. "
         "핵심은 **굵게** 강조하세요."
     )
-    prompt = f"{sys}\n\n[컨텍스트]\n{ctx}\n\n[질문]\n{question}"
+    prompt=f"{sys}\n\n[컨텍스트]\n{ctx}\n\n[질문]\n{question}"
     try:
-        model = _get_gen_model()
-        resp = model.generate_content(prompt, generation_config={"temperature":0.2, "max_output_tokens":1024})
+        model=_get_gen_model()
+        resp=model.generate_content(prompt, generation_config={"temperature":0.2, "max_output_tokens":1024})
         return (resp.text or "").strip()
     except Exception as e:
         return f"답변 생성 중 오류가 발생했습니다: {e}"
 
-# UI 렌더링
+# =========================
+# Header (제목 + 우측 회전 초기화)
+# =========================
+# 프레임 시작
+st.markdown('<div id="phone-frame">', unsafe_allow_html=True)
+
 c1, c2 = st.columns([1.5, 0.16])
 with c1: _md('<div class="chat-header"><div class="chat-title">🧙‍♂️ 우리 연금술사</div></div>')
 with c2:
     if st.button("🔄", help="대화 초기화", use_container_width=True):
-        st.session_state.messages = [{
-            "role": "assistant",
-            "content": "대화를 새로 시작합니다. 무엇이 궁금하신가요?",
-            "sources": [],
-            "ts": format_timestamp(datetime.now(TZ))
+        st.session_state.messages=[{
+            "role":"assistant","content":"대화를 새로 시작합니다. 무엇이 궁금하신가요?",
+            "sources":[], "ts": datetime.now(TZ).strftime("%Y-%m-%d %H:%M")
         }]
-        st.session_state._preset = None
         st.rerun()
 
-# 프리셋
+# =========================
+# Presets
+# =========================
 cols = st.columns(3)
 for i, label in enumerate(["우리금융지주 전망?", "호텔신라 실적 포인트?", "배당주 포트 제안"]):
     with cols[i]:
@@ -307,8 +408,12 @@ for i, label in enumerate(["우리금융지주 전망?", "호텔신라 실적 �
             st.session_state._preset = label
 st.divider()
 
-# 메시지 렌더링
+# =========================
+# Screen body (스크롤 영역) : 히스토리 + 입력바
+# =========================
 st.markdown('<div class="screen-body">', unsafe_allow_html=True)
+
+# 대화 히스토리 렌더 (단 한 번)
 for i, m in enumerate(st.session_state.messages):
     _render_message(m["content"], m["role"], m.get("ts",""))
     if m["role"] == "assistant":
@@ -316,34 +421,48 @@ for i, m in enumerate(st.session_state.messages):
         if m.get("sources"):
             _render_sources_inline(m["sources"])
 
-# 입력바 (들여쓰기 수정: with 블록 내에서 st.markdown 호출)
+# === Answer flow ===
+def run_answer(question: str):
+    if not question:
+        return
+
+    now = datetime.now(TZ).strftime("%Y-%m-%d %H:%M")
+    # 사용자 메시지 상태만 추가
+    st.session_state.messages.append({
+        "role": "user", "content": question, "sources": [], "ts": now
+    })
+
+    with st.spinner("검색/생성 중…"):
+        main = svc.answer(question) or {}
+        main_sources = main.get("source_documents", []) or []
+        extra = search_temp_index(question, top_k=5)
+        answer = generate_with_context(question, main_sources, extra)
+        merged_sources = (extra or []) + (main_sources[:5] if main_sources else [])
+
+    now2 = datetime.now(TZ).strftime("%Y-%m-%d %H:%M")
+    st.session_state.messages.append({
+        "role":"assistant","content":answer,"sources":merged_sources,"ts":now2
+    })
+
+    # 실제 렌더는 위 히스토리 루프에 맡기고 페이지 리렌더
+    st.rerun()
+
+# 프레임 하단: 커스텀 입력바
 st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
 with st.form("chat_form", clear_on_submit=True):
     c1, c2 = st.columns([1, 0.18])
     user_q = c1.text_input("질문을 입력하세요...", key="custom_input", label_visibility="collapsed")
     submitted = c2.form_submit_button("➤", use_container_width=True)
 st.markdown('</div></div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
 
-# 답변 처리
-def run_answer(question: str):
-    if not question: return
-    now = format_timestamp(datetime.now(TZ))
-    st.session_state.messages.append({"role": "user", "content": question, "sources": [], "ts": now})
-    _render_message(question, "user", now)
-    with st.spinner("검색/생성 중…"):
-        main = svc.answer(question) or {}
-        main_sources = main.get("source_documents", []) or []
-        answer = generate_with_context(question, main_sources)
-    now2 = format_timestamp(datetime.now(TZ))
-    st.session_state.messages.append({"role": "assistant", "content": answer, "sources": main_sources, "ts": now2})
-    _render_message(answer, "assistant", now2)
-    _copy_button(answer, key=f"ans-{len(st.session_state.messages)}")
-    _render_sources_inline(main_sources)
+# 스크롤 영역 닫기 + 프레임 끝
+st.markdown('</div>', unsafe_allow_html=True)   # .screen-body 닫기
+st.markdown('</div>', unsafe_allow_html=True)   # #phone-frame 닫기
 
-# 제출 처리
-if submitted and user_q:
-    run_answer(user_q)
-elif st.session_state._preset:
-    run_answer(st.session_state._preset)
+# 제출 처리 (프리셋 우선)
+q = st.session_state._preset
+if q:
+    run_answer(q)
     st.session_state._preset = None
+elif 'submitted' in locals() and submitted and user_q:
+    run_answer(user_q)
