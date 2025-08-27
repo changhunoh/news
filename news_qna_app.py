@@ -23,13 +23,14 @@ _prime_env_from_secrets()
 TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
 
 # 라이트 강제(브라우저/컨테이너 전역)
+st.markdown('<meta name="color-scheme" content="light">', unsafe_allow_html=True)
 st.markdown("""
 <style>
 :root { color-scheme: light !important; }
 
 /* 배경/글자 라이트 고정 */
 html, body,
-[data-testid="stAppViewContainer"], section.main, .stMain, .stBlock, .block-container,
+[data-testid="stAppViewContainer"], section.main, .stMain, .block-container,
 [data-testid="stHeader"], [data-testid="stSidebar"] {
   background: #f6f8fb !important; color: #1f2a44 !important;
 }
@@ -56,21 +57,9 @@ hr{ border:0; border-top:1px solid #e6ebf4 !important; }
   border-radius:12px !important; padding:12px !important; font-size:15px !important;
 }
 
-/* 헤더 - 단순화: 기본 렌더링 보장 */
-.chat-header{ 
-  display:flex; 
-  align-items:center; 
-  justify-content:space-between; 
-  margin: 4px 2px 12px; 
-}
-.chat-title{ 
-  font-size:20px; 
-  font-weight:900; 
-  color:#1f2a44; 
-  white-space: nowrap;  /* 줄바꿈 방지, 필요 시 제거 */
-  overflow: hidden;  /* 넘침 방지 */
-  text-overflow: ellipsis;  /* 넘침 시 ... 표시 */
-}
+/* 헤더 */
+.chat-header{ display:flex; align-items:center; justify-content:space-between; margin: 4px 2px 12px; }
+.chat-title{ font-size:20px; font-weight:900; color:#1f2a44; }
 .reset-btn>button{
   width:38px; height:38px; border-radius:999px !important;
   background:#eef4ff !important; color:#1757ff !important; border:1px solid #dce7ff !important;
@@ -110,6 +99,7 @@ hr{ border:0; border-top:1px solid #e6ebf4 !important; }
 .src-row{ margin:4px 6px 0; }
 </style>
 """, unsafe_allow_html=True)
+
 # =========================
 # Backend service
 # =========================
