@@ -27,8 +27,8 @@ class NewsQnAService:
         embed_model_name: str = "gemini-embedding-001",
         gen_model_name: str = "gemini-2.5-flash-lite",
         embed_dim: int = 3072,
-        top_k: int = 5,
-        rerank_top_k: int = 10,
+        top_k: int = 10,
+        rerank_top_k: int = 5,
         use_rerank: bool = False,
     ):
         self.project = project or os.getenv("GOOGLE_CLOUD_PROJECT")
