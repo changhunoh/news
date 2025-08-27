@@ -77,14 +77,16 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": "대화를 새로 시작합니다. 무엇이 궁금하신가요?", "ts": ts_now()}
     ]
 
+# --- RAG 초기화 ---
 if "rag" not in st.session_state:
     try:
-        # 함수 기반이므로 인스턴스 생성 대신 함수 참조만 저장
+        # 함수 자체를 저장
         st.session_state.rag = get_rag_response
     except Exception as e:
         st.session_state.rag = None
         st.warning(f"RAG 초기화 오류: {e}\n\nDemo 모드로 동작합니다.")
 
+# ✅ 지역 변수로 꺼내기 (이 줄이 없으면 NameError 납니다)
 rag = st.session_state.get("rag", None)
 
 
@@ -137,24 +139,28 @@ for msg in st.session_state.messages:
 # 입력 처리
 prompt = st.chat_input("질문을 입력하세요…")
 if prompt:
-    # ① 즉시 사용자 말풍선 렌더
+    # 사용자 메시지 즉시 렌더
     with st.chat_message("user", avatar="🧑‍💼"):
-        st.markdown(f'<div class="bubble user">{prompt}</div>', unsafe_allow_html=True)
+        st.markdown(prompt)
 
-    # ② 세션에 저장 (다음 rerun에서 위 루프가 정상 표시)
+    # 세션에 저장
     st.session_state.messages.append({"role": "user", "content": prompt, "ts": ts_now()})
 
-    # ③ 답변 생성 + 어시스턴트 말풍선
+    # 답변 생성
     with st.chat_message("assistant", avatar="🧙‍♂️"):
         with st.spinner("답변 생성 중…"):
-            if callable(rag):
-                result = rag(prompt)
+            if callable(rag):                      # ✅ rag는 함수
+                result = rag(prompt)               # ✅ 함수 호출
                 answer  = result.get("answer", "관련된 정보를 찾을 수 없습니다.")
                 sources = result.get("source_documents", [])
             else:
-                answer  = "데모 모드입니다. 백엔드가 초기화되지 않았습니다."
+                answer  = "Demo 모드입니다."
                 sources = []
-        st.markdown(answer, unsafe_allow_html=True)
+        st.markdown(answer)
 
-    st.session_state.messages.append({"role":"assistant","content":answer,"ts":ts_now(),"sources":sources})
+    # 세션에 저장
+    st.session_state.messages.append(
+        {"role": "assistant", "content": answer, "ts": ts_now(), "sources": sources}
+    )
     st.rerun()
+
