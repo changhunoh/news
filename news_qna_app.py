@@ -115,16 +115,7 @@ button[kind="secondaryFormSubmit"]:hover {
 </style>
 """, unsafe_allow_html=True)
 
-# ------------------------
-# 채팅창 입력
-# ------------------------
 
-st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
-with st.form("chat_form", clear_on_submit=True):
-    c1, c2 = st.columns([1, 0.15])
-    user_q = c1.text_input("질문을 입력하세요...", key="chat_input", label_visibility="collapsed")
-    submitted = c2.form_submit_button("➤", use_container_width=True)
-st.markdown('</div></div>', unsafe_allow_html=True)
 
 # ------------------------
 # 백엔드 서비스
@@ -214,10 +205,14 @@ messages_ph = st.empty()
 # ------------------------
 # 입력 폼
 # ------------------------
-# ---- 폼 (제출 먼저 처리 → 같은 런에서 두 번 렌더) ----
+# ---- 채팅폼 (제출 먼저 처리 → 같은 런에서 두 번 렌더) ----
+
+st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
 with st.form("chat_form", clear_on_submit=True):
-    user_q = st.text_input("질문을 입력하세요", "")
-    submitted = st.form_submit_button("전송")
+    c1, c2 = st.columns([1, 0.15])
+    user_q = c1.text_input("질문을 입력하세요...", key="chat_input", label_visibility="collapsed")
+    submitted = c2.form_submit_button("➤", use_container_width=True)
+st.markdown('</div></div>', unsafe_allow_html=True)
 
 if submitted and user_q.strip():
     now = fmt_ts(datetime.now(TZ))
