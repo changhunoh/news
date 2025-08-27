@@ -80,6 +80,8 @@ def render_messages(msgs, placeholder):
 st.title("🧙‍♂️ 우리 연금술사")
 messages_ph = st.empty()
 
+debug = st.sidebar.toggle("🔍 RAG 디버그 보기", value=True)
+
 # 답변 생성
 def run_answer(question: str):
     # 사용자 메시지
@@ -90,15 +92,40 @@ def run_answer(question: str):
 
     # 답변 생성
     sources = []
+    raw_result = {}
     if svc:
         try:
             result = svc.answer(question) or {}
-            ans = result.get("answer") or "답변을 가져오지 못했습니다."
-            sources = result.get("source_documents", [])
+            ans = raw_result.get("answer") or raw_result.get("content") or "답변을 가져오지 못했습니다."
+            # 다양한 키 호환
+            sources = (
+            raw_result.get("source_documents")
+            or raw_result.get("sources")
+            or raw_result.get("docs")
+            or []
+            )
         except Exception as e:
             ans = f"오류 발생: {e}"
     else:
         ans = f"데모 응답: '{question}'에 대한 분석 결과는 준비 중입니다."
+        raw_result = {"answer": ans, "source_documents": []}
+    # 디버그 패널
+    if debug:
+        with st.expander("🔎 RAG 디버그 (원시 결과/컨텍스트/스코어)"):
+            st.write("raw_result keys:", list(raw_result.keys()))
+            st.write("num sources:", len(sources))
+            for i, d in enumerate(sources, 1):
+                if isinstance(d, dict):
+                    md = d.get("metadata", {})
+                    score = md.get("score", d.get("score", None))
+                    title = md.get("title") or md.get("path") or md.get("source") or f"문서 {i}"
+                    url = md.get("url")
+                    st.markdown(f"**#{i} {title}**  | score={score}")
+                    if url: st.markdown(f"[원문]({url})")
+                    txt = d.get("content") or d.get("page_content") or ""
+                    st.code((txt[:800] + (" …" if len(txt)>800 else "")))
+                else:
+                    st.write(d)
 
     # 어시스턴트 메시지 (근거 포함)
     st.session_state["messages"].append({
