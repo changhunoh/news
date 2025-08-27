@@ -1,13 +1,79 @@
 import os, re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import streamlit as st
 
+# =========================
+# 기본 유틸 (함수는 "사용 전에" 정의!)
+# =========================
+
+TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
+
+def format_timestamp(dt: datetime) -> str:
+    return dt.astimezone(TZ).strftime("%Y년 %m월 %d일 %p %I:%M").replace("AM", "오전").replace("PM", "오후")
+
+def _md(html: str):
+    st.markdown(html, unsafe_allow_html=True)
+
+def _escape_html(s: Optional[str]) -> str:
+    return (s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+
+# 과도 이스케이프 수정: \\w -> \w
+def _linkify(s: str) -> str:
+    return re.sub(r"(https?://[\w\-\./%#\?=&:+,~]+)", r'<a href="\1" target="_blank">\1</a>', s or "")
+
+def _render_message(text: str, sender: str, ts: str):
+    row = "user-row" if sender=="user" else "bot-row"
+    bub = "user-bubble" if sender=="user" else "bot-bubble"
+    safe = _linkify(_escape_html(text or ""))
+    _md(f'<div class="chat-row {row}"><div class="chat-bubble {bub}">{safe}</div></div>')
+    _md(f'<div class="timestamp {"ts-right" if sender=="user" else "ts-left"}">{ts}</div>')
+
+def _render_sources_inline(sources: List[Dict[str,Any]]):
+    if not sources: return
+    chips = []
+    for i, d in enumerate(sources, 1):
+        m = d.get("metadata", {}) or {}
+        title = m.get("title") or m.get("path") or m.get("source") or f"문서 {i}"
+        url = m.get("url")
+        try:
+            score = float(d.get("score", 0.0) or 0.0)
+        except Exception:
+            score = 0.0
+        label = f"#{i} {title} · {score:.3f}"
+        chip_html = f'<span class="source-chip"><a href="{url}" target="_blank">{label}</a></span>' if url else f'<span class="source-chip">{label}</span>'
+        chips.append(chip_html)
+    _md(f'<div class="src-row">{"".join(chips)}</div>')
+
+def _copy_button(text: str, key: str):
+    from streamlit.components.v1 import html as st_html
+    safe = (text or "").replace("\\","\\\\").replace("`","\\`")
+    st_html(f"""
+<div class="action-bar">
+  <button class="action-btn" id="copy-{key}" data-text="{safe}">📋 복사</button>
+  <span class="small" id="copied-{key}" style="display:none;">복사됨!</span>
+</div>
+<script>
+(function(){{
+  const b=document.getElementById("copy-{key}"), t=document.getElementById("copied-{key}");
+  if(!b) return;
+  b.onclick=async()=>{{
+    try{{ await navigator.clipboard.writeText(b.getAttribute("data-text")); t.style.display="inline-block"; setTimeout(()=>t.style.display="none",1200); }}
+    catch(e){{ const ta=document.createElement('textarea'); ta.value=b.getAttribute("data-text"); document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); t.style.display="inline-block"; setTimeout(()=>t.style.display="none",1200); }}
+  }};
+}})();
+</script>
+""", height=30)
+
+# =========================
 # 페이지 설정
+# =========================
 st.set_page_config(page_title="우리 연금술사", page_icon="📰", layout="centered")
 
+# =========================
 # 환경 변수 설정
+# =========================
 def _prime_env_from_secrets():
     try:
         if hasattr(st, 'secrets') and st.secrets:
@@ -19,11 +85,12 @@ def _prime_env_from_secrets():
         st.error("Secrets file not found. Please check your Streamlit configuration.")
     except Exception as e:
         st.error(f"Error loading secrets: {e}")
+
 _prime_env_from_secrets()
 
-TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
-
-# CSS (radial-gradient 수정, 공백 및 문자 점검)
+# =========================
+# CSS
+# =========================
 st.markdown("""
 <style>
 :root {
@@ -58,293 +125,147 @@ html, body, [data-testid="stAppViewContainer"], section.main, .stMain, [data-tes
     padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
     scroll-padding-bottom: 120px;
 }
-.screen-body::-webkit-scrollbar {
-    width: 8px;
-}
-.screen-body::-webkit-scrollbar-track {
-    background: #f0f4ff;
-    border-radius: 8px;
-}
-.screen-body::-webkit-scrollbar-thumb {
-    background: #c0c7d6;
-    border-radius: 8px;
-}
-.screen-body::-webkit-scrollbar-thumb:hover {
-    background: #a0a7b6;
-}
-.screen-body {
-    scrollbar-width: thin;
-    scrollbar-color: #c0c7d6 #f0f4ff;
-}
-.stChatInputContainer {
-    display: none !important;
-}
-a {
-    color: var(--brand) !important;
-}
-hr {
-    border: 0;
-    border-top: 1px solid var(--line) !important;
-}
+.screen-body::-webkit-scrollbar { width: 8px; }
+.screen-body::-webkit-scrollbar-track { background: #f0f4ff; border-radius: 8px; }
+.screen-body::-webkit-scrollbar-thumb { background: #c0c7d6; border-radius: 8px; }
+.screen-body::-webkit-scrollbar-thumb:hover { background: #a0a7b6; }
+.screen-body { scrollbar-width: thin; scrollbar-color: #c0c7d6 #f0f4ff; }
+.stChatInputContainer { display: none !important; }
+a { color: var(--brand) !important; }
+hr { border: 0; border-top: 1px solid var(--line) !important; }
 button, .stButton > button, .stDownloadButton > button {
-    background: var(--chip) !important;
-    border: 1px solid #dce7ff !important;
-    color: var(--brand) !important;
-    border-radius: 999px !important;
-    font-weight: 700 !important;
-    padding: 8px 14px !important;
-    min-height: auto !important;
-    line-height: 1.1 !important;
+    background: var(--chip) !important; border: 1px solid #dce7ff !important; color: var(--brand) !important;
+    border-radius: 999px !important; font-weight: 700 !important; padding: 8px 14px !important; min-height: auto !important; line-height: 1.1 !important;
 }
-.st-expander, .st-expander div[role="button"] {
-    background: #fff !important;
-    border: 1px solid var(--line) !important;
-    color: var(--text) !important;
-}
-.chat-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: 8px 6px 12px;
-}
-.chat-title {
-    font-size: 20px;
-    font-weight: 900;
-    color: var(--text);
-    letter-spacing: .2px;
-}
+.st-expander, .st-expander div[role="button"] { background: #fff !important; border: 1px solid var(--line) !important; color: var(--text) !important; }
+.chat-header { display: flex; align-items: center; justify-content: space-between; margin: 8px 6px 12px; }
+.chat-title { font-size: 20px; font-weight: 900; color: var(--text); letter-spacing: .2px; }
 .reset-btn > button {
-    width: 38px;
-    height: 38px;
-    border-radius: 999px !important;
-    background: var(--chip) !important;
-    color: var(--brand) !important;
-    border: 1px solid #dce7ff !important;
-    box-shadow: 0 4px 12px rgba(23,87,255,.08);
+    width: 38px; height: 38px; border-radius: 999px !important; background: var(--chip) !important; color: var(--brand) !important;
+    border: 1px solid #dce7ff !important; box-shadow: 0 4px 12px rgba(23,87,255,.08);
 }
-.chat-row {
-    display: flex;
-    margin: 12px 0;
-    align-items: flex-end;
-}
-.user-row {
-    justify-content: flex-end;
-}
-.bot-row {
-    justify-content: flex-start;
-    align-items: flex-start !important;
-}
+.chat-row { display: flex; margin: 12px 0; align-items: flex-end; }
+.user-row { justify-content: flex-end; }
+.bot-row { justify-content: flex-start; align-items: flex-start !important; }
 .chat-bubble {
-    max-width: 86%;
-    padding: 14px 16px;
-    border-radius: 18px;
-    line-height: 1.65;
-    font-size: 16px;
-    background: #ffffff;
-    color: var(--text);
-    border: 1px solid var(--line);
-    border-bottom-left-radius: 8px;
-    box-shadow: 0 10px 22px rgba(15,23,42,.08);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    max-width: 86%; padding: 14px 16px; border-radius: 18px; line-height: 1.65; font-size: 16px; background: #ffffff; color: var(--text);
+    border: 1px solid var(--line); border-bottom-left-radius: 8px; box-shadow: 0 10px 22px rgba(15,23,42,.08); white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
 }
-.bot-row .chat-bubble {
-    position: relative;
-    margin-left: 54px;
-    margin-top: 2px;
-}
+.bot-row .chat-bubble { position: relative; margin-left: 54px; margin-top: 2px; }
 .bot-row .chat-bubble::before {
-    content: "🧙‍♂️";
-    position: absolute;
-    left: -54px;
-    top: 0;
-    bottom: auto;
-    width: 42px;
-    height: 42px;
-    border-radius: 999px;
-    background: #fff;
-    border: 1px solid var(--line);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    box-shadow: 0 6px 14px rgba(15,23,42,.08);
+    content: "🧙‍♂️"; position: absolute; left: -54px; top: 0; bottom: auto; width: 42px; height: 42px; border-radius: 999px; background: #fff; border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 6px 14px rgba(15,23,42,.08);
 }
 .user-bubble {
-    background: var(--brand) !important;
-    color: #fff !important;
-    border: 0 !important;
-    border-bottom-right-radius: 8px;
-    border-top-left-radius: 18px;
-    box-shadow: 0 10px 28px rgba(11,98,230,.26);
-    font-weight: 700;
-    letter-spacing: .2px;
-    padding: 16px 18px;
+    background: var(--brand) !important; color: #fff !important; border: 0 !important; border-bottom-right-radius: 8px; border-top-left: 18px;
+    box-shadow: 0 10px 28px rgba(11,98,230,.26); font-weight: 700; letter-spacing: .2px; padding: 16px 18px;
 }
-.timestamp {
-    font-size: 12px;
-    color: #6b7280;
-    margin: 4px 6px;
-}
-.ts-left {
-    text-align: left;
-}
-.ts-right {
-    text-align: right;
-}
-.action-bar {
-    display: flex;
-    gap: 8px;
-    margin: 6px 6px 0;
-}
-.action-btn {
-    font-size: 12px;
-    padding: 6px 10px;
-    border-radius: 10px;
-    border: 1px solid #dce7ff;
-    background: #eef4ff;
-    color: var(--brand);
-}
+.timestamp { font-size: 12px; color: #6b7280; margin: 4px 6px; }
+.ts-left { text-align: left; }
+.ts-right { text-align: right; }
+.action-bar { display: flex; gap: 8px; margin: 6px 6px 0; }
+.action-btn { font-size: 12px; padding: 6px 10px; border-radius: 10px; border: 1px solid #dce7ff; background: #eef4ff; color: var(--brand); }
 .source-chip {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: #eef4ff;
-    color: var(--brand);
-    font-weight: 800;
-    font-size: 12px;
-    border: 1px solid #dce7ff;
-    margin: 6px 6px 0 0;
+    display: inline-block; padding: 4px 10px; border-radius: 999px; background: #eef4ff; color: var(--brand); font-weight: 800; font-size: 12px; border: 1px solid #dce7ff; margin: 6px 6px 0 0;
 }
-.source-chip a {
-    color: var(--brand);
-    text-decoration: none;
-}
-.source-chip a:hover {
-    text-decoration: underline;
-}
+.source-chip a { color: var(--brand); text-decoration: none; }
+.source-chip a:hover { text-decoration: underline; }
 .chat-dock {
-    position: absolute !important;
-    left: 50% !important;
-    bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
-    transform: translateX(-50%);
-    width: 92%;
-    max-width: 370px;
-    z-index: 20;
-    filter: drop-shadow(0 10px 20px rgba(15,23,42,.18));
+    position: absolute !important; left: 50% !important; bottom: 16px !important; transform: translateX(-50%);
+    width: 92%; max-width: 370px; z-index: 20; filter: drop-shadow(0 10px 20px rgba(15,23,42,.18));
 }
 .chat-dock .dock-wrap {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    background: #ffffff;
-    border-radius: 999px;
-    padding: 8px;
-    border: 1px solid #e6ebf4;
-    box-shadow: 0 8px 24px rgba(15,23,42,.10);
+    display: flex; gap: 8px; align-items: center; background: #ffffff; border-radius: 999px; padding: 8px; border: 1px solid #e6ebf4; box-shadow: 0 8px 24px rgba(15,23,42,.10);
 }
-.chat-dock .stTextInput > div > div {
-    background: transparent !important;
-    border: 0 !important;
-    padding: 0 !important;
-}
-.chat-dock input {
-    height: 44px !important;
-    padding: 0 12px !important;
-    font-size: 15px !important;
-}
+.chat-dock .stTextInput > div > div { background: transparent !important; border: 0 !important; padding: 0 !important; }
+.chat-dock input { height: 44px !important; padding: 0 12px !important; font-size: 15px !important; }
 .chat-dock .send-btn > button {
-    width: 40px;
-    height: 40px;
-    border-radius: 999px !important;
-    background: #e6efff !important;
-    color: #0b62e6 !important;
-    border: 0 !important;
-    box-shadow: inset 0 0 0 1px #d8e6ff;
-    font-weight: 800;
+    width: 40px; height: 40px; border-radius: 999px !important; background: #e6efff !important; color: #0b62e6 !important; border: 0 !important; box-shadow: inset 0 0 0 1px #d8e6ff; font-weight: 800;
 }
 @media (max-width: 480px) {
-    .block-container > :first-child {
-        height: clamp(560px, 86vh, 820px);
-    }
+    .block-container > :first-child { height: clamp(560px, 86vh, 820px); }
+    .block-container { max-width: 94vw; }
 }
-@media (max-width: 480px) {
-    .block-container {
-        max-width: 94vw;
-    }
-}
-[data-testid="stHeader"] {
-    background: transparent !important;
-    border: 0 !important;
-}
-.chat-dock:empty,
-.chat-dock .dock-wrap:empty {
-    display: none !important;
-}
-.chat-dock .dock-wrap > *:not(form) {
-    display: none !important;
-}
-.chat-dock input {
-    background: #ffffff !important;
-    color: #1f2a44 !important;
-}
-.chat-dock {
-    position: absolute !important;
-    left: 50% !important;
-    bottom: 16px !important;
-    transform: translateX(-50%);
-}
+[data-testid="stHeader"] { background: transparent !important; border: 0 !important; }
+.chat-dock:empty, .chat-dock .dock-wrap:empty { display: none !important; }
+.chat-dock .dock-wrap > *:not(form) { display: none !important; }
+.chat-dock input { background: #ffffff !important; color: #1f2a44 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# 백엔드 서비스
-from news_qna_service import NewsQnAService
+# =========================
+# 백엔드 서비스 로드
+# =========================
+try:
+    from news_qna_service import NewsQnAService
+except Exception as e:
+    NewsQnAService = None
+    st.error(f"[임포트 오류] news_qna_service 모듈을 불러오지 못했습니다: {e}")
 
 @st.cache_resource
-def get_service() -> NewsQnAService:
-    return NewsQnAService(
-        project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-        location=os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
-        qdrant_url=os.getenv("QDRANT_URL"),
-        qdrant_key=os.getenv("QDRANT_API_KEY"),
-        collection=os.getenv("COLLECTION_NAME", "stock_news"),
-        embed_model_name=os.getenv("EMBED_MODEL_NAME", "gemini-embedding-001"),
-        gen_model_name=os.getenv("GENAI_MODEL_NAME", "gemini-2.5-pro"),
-        embed_dim=int(os.getenv("EMBED_DIM", "3072")),
-        top_k=int(os.getenv("DEFAULT_TOP_K", "8")),
-        use_rerank=False,
-    )
+def get_service():
+    if NewsQnAService is None:
+        return None
+    try:
+        return NewsQnAService(
+            project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+            location=os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
+            qdrant_url=os.getenv("QDRANT_URL"),
+            qdrant_key=os.getenv("QDRANT_API_KEY"),
+            collection=os.getenv("COLLECTION_NAME", "stock_news"),
+            embed_model_name=os.getenv("EMBED_MODEL_NAME", "gemini-embedding-001"),
+            gen_model_name=os.getenv("GENAI_MODEL_NAME", "gemini-2.5-pro"),
+            embed_dim=int(os.getenv("EMBED_DIM", "3072")),
+            top_k=int(os.getenv("DEFAULT_TOP_K", "8")),
+            use_rerank=False,
+        )
+    except Exception as e:
+        st.error(f"NewsQnAService 초기화 실패: {e}")
+        return None
+
 svc = get_service()
 
-# Vertex AI 초기화 (임베딩 모델 제거, 생성 모델만 유지)
+# =========================
+# Vertex AI 초기화 & 모델
+# =========================
 _vertex_inited = False
 _gen_model = None
 
-def _ensure_vertex_init():
+def _ensure_vertex_init() -> bool:
     global _vertex_inited
-    if not _vertex_inited:
-        try:
-            project = os.getenv("GOOGLE_CLOUD_PROJECT")
-            location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-            if not project:
-                st.error("GOOGLE_CLOUD_PROJECT is not set in environment variables.")
-                return
-            import vertexai
-            vertexai.init(project=project, location=location)
-            _vertex_inited = True
-        except Exception as e:
-            st.error(f"Failed to initialize Vertex AI: {e}")
+    if _vertex_inited:
+        return True
+    try:
+        project = os.getenv("GOOGLE_CLOUD_PROJECT")
+        location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+        if not project:
+            st.error("GOOGLE_CLOUD_PROJECT is not set in environment variables.")
+            return False
+        import vertexai
+        vertexai.init(project=project, location=location)
+        _vertex_inited = True
+        return True
+    except Exception as e:
+        st.error(f"Failed to initialize Vertex AI: {e}")
+        return False
 
 def _get_gen_model():
     global _gen_model
     if _gen_model is None:
-        _ensure_vertex_init()
-        from vertexai.generative_models import GenerativeModel
-        _gen_model = GenerativeModel(os.getenv("GENAI_MODEL_NAME", "gemini-2.5-pro"))
+        ok = _ensure_vertex_init()
+        if not ok:
+            return None
+        try:
+            from vertexai.generative_models import GenerativeModel
+            _gen_model = GenerativeModel(os.getenv("GENAI_MODEL_NAME", "gemini-2.5-pro"))
+        except Exception as e:
+            st.error(f"생성 모델 로딩 실패: {e}")
+            return None
     return _gen_model
 
+# =========================
 # 세션 상태
+# =========================
 if "messages" not in st.session_state:
     st.session_state.messages = [{
         "role": "assistant",
@@ -355,54 +276,9 @@ if "messages" not in st.session_state:
 if "_preset" not in st.session_state:
     st.session_state._preset = None
 
-# 유틸리티 함수
-def format_timestamp(dt: datetime) -> str:
-    return dt.astimezone(TZ).strftime("%Y년 %m월 %d일 %p %I:%M").replace("AM", "오전").replace("PM", "오후")
-
-def _md(html: str): st.markdown(html, unsafe_allow_html=True)
-def _escape_html(s: str) -> str:
-    return (s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
-def _linkify(s: str) -> str:
-    return re.sub(r"(https?://[\\w\\-\\./%#\\?=&:+,~]+)", r'<a href="\\1" target="_blank">\\1</a>', s)
-def _render_message(text: str, sender: str, ts: str):
-    row = "user-row" if sender=="user" else "bot-row"
-    bub = "user-bubble" if sender=="user" else "bot-bubble"
-    safe = _linkify(_escape_html(text or ""))
-    _md(f'<div class="chat-row {row}"><div class="chat-bubble {bub}">{safe}</div></div>')
-    _md(f'<div class="timestamp {"ts-right" if sender=="user" else "ts-left"}">{ts}</div>')
-def _render_sources_inline(sources: List[Dict[str,Any]]):
-    if not sources: return
-    chips = []
-    for i, d in enumerate(sources, 1):
-        m = d.get("metadata", {}) or {}
-        title = m.get("title") or m.get("path") or m.get("source") or f"문서 {i}"
-        url = m.get("url")
-        score = float(d.get("score", 0.0))
-        label = f"#{i} {title} · {score:.3f}"
-        chip_html = f'<span class="source-chip"><a href="{url}" target="_blank">{label}</a></span>' if url else f'<span class="source-chip">{label}</span>'
-        chips.append(chip_html)
-    _md(f'<div class="src-row">{"".join(chips)}</div>')
-def _copy_button(text: str, key: str):
-    from streamlit.components.v1 import html as st_html
-    safe = (text or "").replace("\\","\\\\").replace("`","\\`")
-    st_html(f"""
-<div class="action-bar">
-  <button class="action-btn" id="copy-{key}" data-text="{safe}">📋 복사</button>
-  <span class="small" id="copied-{key}" style="display:none;">복사됨!</span>
-</div>
-<script>
-(function(){{
-  const b=document.getElementById("copy-{key}"), t=document.getElementById("copied-{key}");
-  if(!b) return;
-  b.onclick=async()=>{{
-    try{{ await navigator.clipboard.writeText(b.getAttribute("data-text")); t.style.display="inline-block"; setTimeout(()=>t.style.display="none",1200); }}
-    catch(e){{ const ta=document.createElement('textarea'); ta.value=b.getAttribute("data-text"); document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); t.style.display="inline-block"; setTimeout(()=>t.style.display="none",1200); }}
-  }};
-}})();
-</script>
-""", height=30)
-
-# 답변 생성
+# =========================
+# 답변 생성 함수
+# =========================
 def generate_with_context(question: str, main_sources: List[Dict[str,Any]]) -> str:
     def snip(t, n=1800): return re.sub(r"\s+"," ",t or "")[:n]
     ctx = "\n\n".join([snip(d.get("content","")) for d in main_sources])[:10000]
@@ -413,14 +289,25 @@ def generate_with_context(question: str, main_sources: List[Dict[str,Any]]) -> s
         "핵심은 **굵게** 강조하세요."
     )
     prompt = f"{sys}\n\n[컨텍스트]\n{ctx}\n\n[질문]\n{question}"
+
+    model = _get_gen_model()
+    if model is None:
+        return "생성 모델 초기화에 실패했습니다. 환경 변수와 Vertex 설정을 확인해 주세요."
+
     try:
-        model = _get_gen_model()
-        resp = model.generate_content(prompt, generation_config={"temperature":0.2, "max_output_tokens":1024})
-        return (resp.text or "").strip()
+        # 일부 SDK 버전은 dict로 충분하지만, 실패 시 GenerationConfig 사용
+        try:
+            resp = model.generate_content(prompt, generation_config={"temperature":0.2, "max_output_tokens":1024})
+        except Exception:
+            from vertexai.generative_models import GenerationConfig
+            resp = model.generate_content(prompt, generation_config=GenerationConfig(temperature=0.2, max_output_tokens=1024))
+        return (getattr(resp, "text", None) or "").strip() or "관련된 정보를 찾을 수 없습니다."
     except Exception as e:
         return f"답변 생성 중 오류가 발생했습니다: {e}"
 
+# =========================
 # UI 렌더링
+# =========================
 c1, c2 = st.columns([1.5, 0.16])
 with c1:
     _md('<div class="chat-header"><div class="chat-title">🧙‍♂️ 우리 연금술사</div></div>')
@@ -435,7 +322,6 @@ with c2:
         st.session_state._preset = None
         st.rerun()
 
-# 프리셋
 cols = st.columns(3)
 for i, label in enumerate(["우리금융지주 전망?", "호텔신라 실적 포인트?", "배당주 포트 제안"]):
     with cols[i]:
@@ -443,7 +329,6 @@ for i, label in enumerate(["우리금융지주 전망?", "호텔신라 실적 �
             st.session_state._preset = label
 st.divider()
 
-# 메시지 렌더링
 st.markdown('<div class="screen-body">', unsafe_allow_html=True)
 for i, m in enumerate(st.session_state.messages):
     _render_message(m["content"], m["role"], m.get("ts",""))
@@ -461,16 +346,29 @@ with st.form("chat_form", clear_on_submit=True):
 st.markdown('</div></div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 답변 처리
+# =========================
+# QnA 실행
+# =========================
 def run_answer(question: str):
     if not question: return
     now = format_timestamp(datetime.now(TZ))
     st.session_state.messages.append({"role": "user", "content": question, "sources": [], "ts": now})
     _render_message(question, "user", now)
+
     with st.spinner("검색/생성 중…"):
-        main = svc.answer(question) or {}
+        if svc is None:
+            st.warning("백엔드 서비스가 초기화되지 않았습니다. news_qna_service 모듈/환경변수를 확인해 주세요.")
+            main = {}
+        else:
+            try:
+                main = svc.answer(question) or {}
+            except Exception as e:
+                st.error(f"svc.answer 오류: {e}")
+                main = {}
+
         main_sources = main.get("source_documents", []) or []
         answer = generate_with_context(question, main_sources)
+
     now2 = format_timestamp(datetime.now(TZ))
     st.session_state.messages.append({"role": "assistant", "content": answer, "sources": main_sources, "ts": now2})
     _render_message(answer, "assistant", now2)
