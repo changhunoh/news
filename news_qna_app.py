@@ -318,24 +318,23 @@ render_messages(st.session_state["messages"], messages_ph)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # 입력창
-if not st.session_state.get("is_generating", False):
-    col1, col2 = st.columns([1, 0.15])
-    
-    with col1:
-        user_q = st.text_input(
-            "질문을 입력하세요...",
-            key="user_input",
-            label_visibility="collapsed",
-            placeholder="예) 삼성전자 전망 알려줘"
-        )
-    
-    with col2:
-        clicked = st.button(
-            "➤",
-            key="send_button",
-            use_container_width=True,
-            disabled=st.session_state.get("is_generating", False)
-        )
+col1, col2 = st.columns([1, 0.15])
+
+with col1:
+    user_q = st.text_input(
+        "질문을 입력하세요...",
+        key="user_input",
+        label_visibility="collapsed",
+        placeholder="예) 삼성전자 전망 알려줘"
+    )
+
+with col2:
+    clicked = st.button(
+        "➤",
+        key="send_button",
+        use_container_width=True,
+        disabled=st.session_state.get("is_generating", False)
+    )
 
 st.markdown('</div>', unsafe_allow_html=True)
 
