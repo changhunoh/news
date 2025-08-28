@@ -79,6 +79,9 @@ st.markdown("""
     border: 1px solid #e5e7eb;
     background: #fff;
     flex: 0 0 40px;
+    box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        0 4px 8px rgba(0, 0, 0, 0.06);
 }
 
 .avatar img {
@@ -104,20 +107,27 @@ st.markdown("""
     white-space: pre-wrap;
     word-break: keep-all;
     overflow-wrap: break-word;
+    position: relative;
 }
 
 .bubble.bot {
     background: #ffffff;
     color: #111;
     border: 1px solid #e5e7eb;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        0 4px 8px rgba(0, 0, 0, 0.06),
+        0 8px 16px rgba(0, 0, 0, 0.04);
 }
 
 .bubble.user {
     background: #0b62e6;
     color: #fff;
     border: 0;
-    box-shadow: 0 4px 12px rgba(11,98,230,.25);
+    box-shadow: 
+        0 4px 8px rgba(11, 98, 230, 0.3),
+        0 8px 16px rgba(11, 98, 230, 0.2),
+        0 12px 24px rgba(11, 98, 230, 0.1);
 }
 
 /* 타임스탬프 */
@@ -138,7 +148,10 @@ st.markdown("""
     border: 1px solid #e5e7eb;
     border-radius: 18px;
     padding: 12px 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        0 4px 8px rgba(0, 0, 0, 0.06),
+        0 8px 16px rgba(0, 0, 0, 0.04);
 }
 
 .typing-dot {
