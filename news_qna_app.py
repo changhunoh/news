@@ -112,7 +112,13 @@ button[kind="secondaryFormSubmit"] {
 button[kind="secondaryFormSubmit"]:hover {
   background:#094fc0 !important;
 }
-
+/* text_input 기본 wrapper 제거 */
+div[data-testid="stTextInput"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -205,18 +211,20 @@ messages_ph = st.empty()
 # 입력 폼
 # ------------------------
 # ---- 채팅폼 (제출 먼저 처리 → 같은 런에서 두 번 렌더) ----
-# 👉 Dock 입력 그리기 '위'에 둬주세요
+# ---- 채팅폼 (제출 먼저 처리 → 같은 런에서 두 번 렌더) ----
+# 상태 초기화 (입력 영역 그리기 '위'에 위치)
 if "is_generating" not in st.session_state:
-    st.session_state.is_generating = False
+    st.session_state["is_generating"] = False
 if "chat_input" not in st.session_state:
-    st.session_state.chat_input = ""
-# --- Dock 입력 영역 (그대로 사용) --- on_change=_submit_on_enter 제외            
+    st.session_state["chat_input"] = ""
+
+# --- Dock 입력 영역 ---
 st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
 c1, c2 = st.columns([1, 0.14])
 
 user_q = c1.text_input(
     "질문을 입력하세요...",
-    key="chat_input",                      # ← 상태와 연결됨
+    key="chat_input",   # state에 직접 바인딩
     label_visibility="collapsed",
     placeholder="예) 삼성전자 전망 알려줘"
 )
@@ -224,14 +232,14 @@ user_q = c1.text_input(
 clicked = c2.button(
     "➤",
     use_container_width=True,
-    disabled=st.session_state.get("is_generating", False)   # ← 안전 접근
+    disabled=st.session_state.get("is_generating", False)
 )
 st.markdown('</div></div>', unsafe_allow_html=True)
 
 # 버튼만 전송 트리거
-final_q = (st.session_state.chat_input or "").strip()
-if clicked and final_q and not st.session_state.is_generating:
-    st.session_state.is_generating = True
+final_q = (st.session_state["chat_input"] or "").strip()
+if clicked and final_q and not st.session_state.get("is_generating", False):
+    st.session_state["is_generating"] = True
 
     now = fmt_ts(datetime.now(TZ))
     # 1) 유저 말풍선
@@ -275,9 +283,9 @@ if clicked and final_q and not st.session_state.is_generating:
     }
     render_messages(st.session_state["messages"], messages_ph)
 
-    # 6) 입력창/상태 초기화
-    st.session_state.chat_input = ""
-    st.session_state.is_generating = False
+    # 6) 입력창/상태 초기화 (딕셔너리 방식!)
+    st.session_state["chat_input"] = ""
+    st.session_state["is_generating"] = False
 # ------------------------
 # 마지막 안전 렌더
 # ------------------------
