@@ -34,9 +34,9 @@ def _avatar_html(role: str) -> str:
             return f"<div class='avatar'><img src='{ASSISTANT_AVATAR_URL}'/></div>"
         return f"<div class='avatar emoji'>{ASSISTANT_EMOJI}</div>"
     else:
-        if _AVATAR_URL:
-            return f"<div class='avatar'><img src='{_AVATAR_URL}'/></div>"
-        return f"<div class='avatar emoji'>{_EMOJI}</div>"
+        if USER_AVATAR_URL:
+            return f"<div class='avatar'><img src='{USER_AVATAR_URL}'/></div>"
+        return f"<div class='avatar emoji'>{USER_EMOJI}</div>"
 
 # ------------------------
 # CSS 스타일
@@ -45,21 +45,24 @@ st.markdown("""
 <style>
 /* 전체 레이아웃 */
 .main {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 24px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }
 
 /* 채팅 메시지 */
 .chat-row {
     display: flex;
-    margin: 16px 0;
+    margin: 20px 0;
     align-items: flex-start;
 }
 
 .bot-row {
     justify-content: flex-start;
-    gap: 8px;
+    gap: 12px;
 }
 
 .user-row {
@@ -69,16 +72,16 @@ st.markdown("""
 
 /* 아바타 */
 .avatar {
-    width: 36px;
-    height: 36px;
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
     overflow: hidden;
-    border: 1px solid #e5e7eb;
+    border: 2px solid #ffffff;
     background: #fff;
-    flex: 0 0 36px;
+    flex: 0 0 42px;
     box-shadow: 
-        0 2px 4px rgba(0, 0, 0, 0.1),
-        0 4px 8px rgba(0, 0, 0, 0.06);
+        0 4px 12px rgba(0, 0, 0, 0.15),
+        0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .avatar img {
@@ -92,46 +95,48 @@ st.markdown("""
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
+    font-size: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
 }
 
 /* 말풍선 */
 .bubble {
-    max-width: 75%;
-    padding: 10px 14px;
-    border-radius: 16px;
+    max-width: 70%;
+    padding: 14px 18px;
+    border-radius: 20px;
     line-height: 1.6;
     white-space: pre-wrap;
     word-break: keep-all;
     overflow-wrap: break-word;
     position: relative;
+    font-size: 15px;
 }
 
 .bubble.bot {
-    background: #ffffff;
-    color: #111;
-    border: 1px solid #e5e7eb;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    color: #1f2937;
+    border: 1px solid #e2e8f0;
     box-shadow: 
-        0 2px 4px rgba(0, 0, 0, 0.1),
-        0 4px 8px rgba(0, 0, 0, 0.06),
-        0 8px 16px rgba(0, 0, 0, 0.04);
+        0 4px 12px rgba(0, 0, 0, 0.08),
+        0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
-.bubble. {
-    background: #0b62e6;
+.bubble.user {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
     color: #fff;
     border: 0;
     box-shadow: 
-        0 4px 8px rgba(11, 98, 230, 0.3),
-        0 8px 16px rgba(11, 98, 230, 0.2),
-        0 12px 24px rgba(11, 98, 230, 0.1);
+        0 6px 16px rgba(59, 130, 246, 0.3),
+        0 4px 8px rgba(59, 130, 246, 0.2);
 }
 
 /* 타임스탬프 */
 .time {
-    font-size: 11px;
-    color: #6b7280;
-    margin-top: 4px;
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 6px;
+    font-weight: 500;
 }
 
 /* 타이핑 버블 */
@@ -177,48 +182,58 @@ div[data-testid="stTextInput"] {
 }
 
 div[data-testid="stTextInput"] input {
-    border: 1px solid #e5e7eb !important;
+    border: 2px solid #e2e8f0 !important;
     flex: 1;
-    padding: 12px 16px !important;
-    font-size: 15px !important;
+    padding: 14px 18px !important;
+    font-size: 16px !important;
     background: #ffffff !important;
-    border-radius: 16px !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.3s ease;
 }
 
 div[data-testid="stTextInput"] input:focus {
     outline: none !important;
-    box-shadow: 0 0 0 3px rgba(11, 98, 230, 0.1) !important;
-    border-color: #0b62e6 !important;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1) !important;
+    border-color: #3b82f6 !important;
+    transform: translateY(-1px);
 }
 
 /* 버튼 스타일 */
 .stButton > button {
     border-radius: 50% !important;
-    background: #0b62e6 !important;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
     color: #fff !important;
-    font-size: 18px !important;
+    font-size: 20px !important;
     font-weight: 700;
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: none !important;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .stButton > button:hover {
-    background: #094fc0 !important;
-    transform: scale(1.05);
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%) !important;
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
 }
 
 /* 헤더 */
 h1 {
     text-align: center;
-    margin-bottom: 30px;
-    color: #1f2937;
+    margin-bottom: 40px;
+    color: #1e293b;
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 /* 채팅 영역 여백 */
@@ -309,13 +324,13 @@ def render_messages(msgs, placeholder):
                     f"<div><div class='bubble bot'>{text}</div>"
                     f"<div class='time'>{ts}</div></div></div>"
                 )
-        else: # 
+        else: # user
             text=_linkify(_escape_html(m.get("content","")))
             html_parts.append(
-                "<div class='chat-row -row'>"
-                f"<div><div class='bubble '>{text}</div>"
+                "<div class='chat-row user-row'>"
+                f"<div><div class='bubble user'>{text}</div>"
                 f"<div class='time' style='text-align:right'>{ts}</div></div>"
-                f"{_avatar_html('')}"
+                f"{_avatar_html('user')}"
                 "</div>"
             )
     placeholder.markdown("\n".join(html_parts), unsafe_allow_html=True)
