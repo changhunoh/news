@@ -183,7 +183,6 @@ class NewsReportService:
     def retrieve(self, question: str, stock: Optional[str] = None) -> List[Dict[str, Any]]:
         qv = self._embed_query(question)
         want = self.rerank_top_k if self.use_rerank else self.top_k
-
         q_filter = None
         if stock:
             self._ensure_stock_index()
@@ -283,14 +282,7 @@ class NewsReportService:
             # rag_model (1.5 pro) 사용
             resp = self._thread_local.rag_model.generate_content(
                 prompt,
-                generation_config={"temperature": 0.0},
-                safety_settings={
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-        }
-    )
+                generation_config={"temperature": 0.0})
                 
             return (getattr(resp, "text", None) or "").strip()
         except Exception as e:
@@ -423,6 +415,7 @@ class NewsReportService:
             return int(getattr(res, "count", 0))
         except Exception:
             return 0
+
 
 
 
