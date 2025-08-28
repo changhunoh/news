@@ -52,8 +52,6 @@ def _fmt_link(md: Dict[str, Any]) -> str:
 # -----------------------------
 # Service 인스턴스 (캐시)
 # -----------------------------
-@st.cache_resource(show_spinner=False)
-get_service = NewsReportService()
 
 
 # -----------------------------
@@ -94,7 +92,7 @@ if run_btn:
         st.error("종목을 1개 이상 입력해 주세요.")
         st.stop()
 
-    svc = get_service()
+    svc =  NewsReportService()
     if svc is None:
         st.error("서비스를 초기화할 수 없습니다. 좌측의 Secrets 설정을 확인해 주세요.")
         st.stop()
@@ -149,4 +147,5 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - score(raw): `{score}` • distance_mode: `{distance_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
