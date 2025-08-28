@@ -100,16 +100,18 @@ st.markdown("""
 
 /* 말풍선 */
 .bubble {
-    max-width: 70%;
+    max-width: 85%;
     padding: 14px 18px;
     border-radius: 20px;
-    line-height: 1.6;
+    line-height: 2.0;
     white-space: pre-wrap;
     word-break: keep-all;
     overflow-wrap: break-word;
     position: relative;
     font-size: 15px;
 }
+
+/* assistant색상 그라데이션 등 */
 
 .bubble.bot {
     background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
