@@ -42,68 +42,6 @@ def _avatar_html(role: str) -> str:
 # CSS 스타일
 # ------------------------
 st.markdown("""
-<script>
-function copyToClipboard(buttonElement) {
-    // 버튼의 data-text 속성에서 텍스트 가져오기
-    const text = buttonElement.getAttribute('data-text');
-    if (!text) {
-        console.error('복사할 텍스트가 없습니다.');
-        return;
-    }
-    
-    // 텍스트를 안전하게 복사
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(function() {
-            // 복사 성공 시 버튼 스타일 변경
-            const originalText = buttonElement.innerHTML;
-            buttonElement.innerHTML = '✓ 복사됨';
-            buttonElement.classList.add('copied');
-            
-            setTimeout(function() {
-                buttonElement.innerHTML = originalText;
-                buttonElement.classList.remove('copied');
-            }, 2000);
-        }).catch(function(err) {
-            console.error('복사 실패:', err);
-            // 폴백 방법 사용
-            fallbackCopyTextToClipboard(text, buttonElement);
-        });
-    } else {
-        // 폴백 방법 사용
-        fallbackCopyTextToClipboard(text, buttonElement);
-    }
-}
-
-function fallbackCopyTextToClipboard(text, buttonElement) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.top = "0";
-    textArea.style.left = "0";
-    textArea.style.position = "fixed";
-    textArea.style.opacity = "0";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    
-    try {
-        const successful = document.execCommand('copy');
-        if (successful) {
-            const originalText = buttonElement.innerHTML;
-            buttonElement.innerHTML = '✓ 복사됨';
-            buttonElement.classList.add('copied');
-            
-            setTimeout(function() {
-                buttonElement.innerHTML = originalText;
-                buttonElement.classList.remove('copied');
-            }, 2000);
-        }
-    } catch (err) {
-        console.error('폴백 복사 실패:', err);
-    }
-    
-    document.body.removeChild(textArea);
-}
-</script>
 <style>
 /* 전체 레이아웃 */
 .main {
@@ -215,8 +153,6 @@ function fallbackCopyTextToClipboard(text, buttonElement) {
     0%,80%,100% { transform: translateY(0); opacity: .5 }
     40% { transform: translateY(-4px); opacity: 1 }
 }
-
-
 
 /* 스트림릿 기본 스타일 제거 */
 div[data-testid="stTextInput"] {
@@ -349,7 +285,7 @@ for k, v in {
     "to_process": False,
     "queued_q": "",
     "pending_idx": None,
-    "input_key": 0,  # 입력창 키를 동적으로 변경하기 위한 카운터
+    "input_key": 0,
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
@@ -396,6 +332,69 @@ def render_messages(msgs, placeholder):
                 "</div>"
             )
     placeholder.markdown("\n".join(html_parts), unsafe_allow_html=True)
+
+# ------------------------
+# JavaScript 복사 기능
+# ------------------------
+st.markdown("""
+<script>
+function copyToClipboard(buttonElement) {
+    const text = buttonElement.getAttribute('data-text');
+    if (!text) {
+        console.error('복사할 텍스트가 없습니다.');
+        return;
+    }
+    
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(function() {
+            const originalText = buttonElement.innerHTML;
+            buttonElement.innerHTML = '✓ 복사됨';
+            buttonElement.classList.add('copied');
+            
+            setTimeout(function() {
+                buttonElement.innerHTML = originalText;
+                buttonElement.classList.remove('copied');
+            }, 2000);
+        }).catch(function(err) {
+            console.error('복사 실패:', err);
+            fallbackCopyTextToClipboard(text, buttonElement);
+        });
+    } else {
+        fallbackCopyTextToClipboard(text, buttonElement);
+    }
+}
+
+function fallbackCopyTextToClipboard(text, buttonElement) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            const originalText = buttonElement.innerHTML;
+            buttonElement.innerHTML = '✓ 복사됨';
+            buttonElement.classList.add('copied');
+            
+            setTimeout(function() {
+                buttonElement.innerHTML = originalText;
+                buttonElement.classList.remove('copied');
+            }, 2000);
+        }
+    } catch (err) {
+        console.error('폴백 복사 실패:', err);
+    }
+    
+    document.body.removeChild(textArea);
+}
+</script>
+""", unsafe_allow_html=True)
 
 # ------------------------
 # 메인 UI
@@ -448,7 +447,6 @@ if clicked and final_q and not st.session_state.get("is_generating", False):
     st.session_state["queued_q"] = final_q
     st.session_state["is_generating"] = True
     st.session_state["to_process"] = True
-    # 입력창 초기화를 위해 키 증가
     st.session_state["input_key"] = st.session_state.get("input_key", 0) + 1
     st.rerun()
 
