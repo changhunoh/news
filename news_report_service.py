@@ -88,10 +88,13 @@ class NewsReportService:
         self.collection = collection or os.getenv("COLLECTION_NAME", "stock_news")
         self.embed_model_name = embed_model_name or os.getenv("EMBED_MODEL_NAME", "gemini-embedding-001")
         self.gen_model_name = gen_model_name or os.getenv("GENAI_MODEL_NAME", "gemini-2.5-pro")
+        self.rag_model_name = rag_model_name or os.getenv("RAG_MODEL_NAME",'gemini-1.5-pro')
         self.embed_dim = int(embed_dim or int(os.getenv("EMBED_DIM", "3072")))
         self.top_k = int(top_k or int(os.getenv("DEFAULT_TOP_K", "1")))
         self.rerank_top_k = int(rerank_top_k or int(os.getenv("RERANK_TOP_K", "1")))
         self.use_rerank = use_rerank
+        print(gen_model_name)
+        print(rag_model_name)
 
         self._dist_mode: Optional[str] = None
 
@@ -402,6 +405,7 @@ class NewsReportService:
             return int(getattr(res, "count", 0))
         except Exception:
             return 0
+
 
 
 
