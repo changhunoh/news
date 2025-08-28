@@ -211,12 +211,19 @@ messages_ph = st.empty()
 # 입력 폼
 # ------------------------
 # ---- 채팅폼 (제출 먼저 처리 → 같은 런에서 두 번 렌더) ----
-# ---- 채팅폼 (제출 먼저 처리 → 같은 런에서 두 번 렌더) ----
 # 상태 초기화 (입력 영역 그리기 '위'에 위치)
 if "is_generating" not in st.session_state:
     st.session_state["is_generating"] = False
 if "chat_input" not in st.session_state:
     st.session_state["chat_input"] = ""
+if "reset_chat_input" not in st.session_state:
+    st.session_state["reset_chat_input"] = False
+
+# ✅ 이전 런에서 reset 요청이 있었다면, 위젯을 그리기 전에 비워준다
+if st.session_state["reset_chat_input"]:
+    st.session_state["chat_input"] = ""
+    st.session_state["reset_chat_input"] = False
+
 
 # --- Dock 입력 영역 ---
 st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
@@ -224,7 +231,7 @@ c1, c2 = st.columns([1, 0.14])
 
 user_q = c1.text_input(
     "질문을 입력하세요...",
-    key="chat_input",   # state에 직접 바인딩
+    key="chat_input",
     label_visibility="collapsed",
     placeholder="예) 삼성전자 전망 알려줘"
 )
@@ -284,8 +291,9 @@ if clicked and final_q and not st.session_state.get("is_generating", False):
     render_messages(st.session_state["messages"], messages_ph)
 
     # 6) 입력창/상태 초기화 (딕셔너리 방식!)
-    st.session_state["chat_input"] = ""
     st.session_state["is_generating"] = False
+    st.session_state["reset_chat_input"] = True
+    st.rerun()
 # ------------------------
 # 마지막 안전 렌더
 # ------------------------
