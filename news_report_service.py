@@ -384,10 +384,8 @@ class NewsReportService:
                 SafetySetting(
                     category=HarmCategory.HARM_CATEGORY_HARASSMENT,
                     threshold=HarmBlockThreshold.BLOCK_NONE,
-                )
-            ]
-        )
-                
+                    )
+                ]
             )
             return (getattr(resp, "text", None) or "").strip()
         except Exception as e:
@@ -416,4 +414,5 @@ class NewsReportService:
             return int(getattr(res, "count", 0))
         except Exception:
             return 0
+
 
