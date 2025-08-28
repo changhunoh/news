@@ -163,6 +163,26 @@ if "pending_question" not in st.session_state:
     st.session_state["pending_question"] = ""
 
 # ------------------------
+# 상태 초기화 (입력창 렌더 전)
+# ------------------------
+for k, v in {
+    "messages": [{
+        "role":"assistant",
+        "content":"대화를 새로 시작합니다. 무엇이 궁금하신가요?",
+        "ts": fmt_ts(datetime.now(TZ))
+    }],
+    "chat_input": "",
+    "is_generating": False,
+    "to_process": False,     # 전송 직후 처리 플래그
+    "queued_q": "",          # 전송된 질문 보관
+    "pending_idx": None,
+}.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+
+
+# ------------------------
 # 메시지 렌더러
 # ------------------------
 def render_messages(msgs, placeholder):
@@ -201,6 +221,9 @@ def render_messages(msgs, placeholder):
             )
     placeholder.markdown("\n".join(html_parts), unsafe_allow_html=True)
 
+
+
+
 # ------------------------
 # 헤더 + 메시지 영역
 # ------------------------
@@ -211,7 +234,7 @@ messages_ph = st.empty()
 # 입력 폼
 # ------------------------
 # ---- 채팅폼 (제출 먼저 처리 → 같은 런에서 두 번 렌더) ----
-# 상태 초기화 (입력 영역 그리기 '위'에 위치)
+# 상태 초기화
 if "is_generating" not in st.session_state:
     st.session_state["is_generating"] = False
 if "chat_input" not in st.session_state:
