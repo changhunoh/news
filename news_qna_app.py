@@ -63,7 +63,8 @@ st.markdown("""
 }
 
 .user-row {
-    justify-content: flex-end;
+    flex-direction: row-reverse; /* 아바타가 오른쪽으로 */
+    justify-content: flex-start; /* 또는 제거해도 OK (기본값) */
     gap: 8px;
 }
 
@@ -101,7 +102,7 @@ st.markdown("""
 /* 말풍선 */
 .bubble {
     max-width: 85%;
-    padding: 14px 18px;
+    padding: 16px 20px;
     border-radius: 20px;
     line-height: 2.0;
     white-space: pre-wrap;
