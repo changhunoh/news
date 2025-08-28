@@ -51,6 +51,8 @@ def _fmt_link(md: Dict[str, Any]) -> str:
 # -----------------------------
 # Service 인스턴스 (캐시)
 # -----------------------------
+"""
+벡터DB 페이로드 확인 필요시 활성화
 def sidebar_qdrant_raw_payload_browser(svc):
     """
     Qdrant 컬렉션에서 payload 원본 그대로를 페이지 단위로 조회/표시/다운로드.
@@ -145,7 +147,7 @@ def sidebar_qdrant_raw_payload_browser(svc):
         mime="application/x-ndjson",
         use_container_width=True,
     )
-
+"""
 
 # -----------------------------
 # UI
@@ -242,6 +244,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - score(raw): `{score}` • distance_mode: `{distance_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
