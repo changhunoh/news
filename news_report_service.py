@@ -368,24 +368,12 @@ class NewsReportService:
             resp = self._thread_local.gen_model.generate_content(
                 prompt, 
                 generation_config={"temperature": 0.25},
-                safety_settings=[
-                SafetySetting(
-                    category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                    threshold=HarmBlockThreshold.BLOCK_NONE,
-                ),
-                SafetySetting(
-                    category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                    threshold=HarmBlockThreshold.BLOCK_NONE,
-                ),
-                SafetySetting(
-                    category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                    threshold=HarmBlockThreshold.BLOCK_NONE,
-                ),
-                SafetySetting(
-                    category=HarmCategory.HARM_CATEGORY_HARASSMENT,
-                    threshold=HarmBlockThreshold.BLOCK_NONE,
-                    )
-                ]
+                safety_settings={
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            }
             )
             return (getattr(resp, "text", None) or "").strip()
         except Exception as e:
@@ -414,5 +402,6 @@ class NewsReportService:
             return int(getattr(res, "count", 0))
         except Exception:
             return 0
+
 
 
