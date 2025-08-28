@@ -151,26 +151,12 @@ svc = get_service()
 # ------------------------
 if "messages" not in st.session_state:
     st.session_state["messages"] = [{
-        "role":"assistant",
-        "content":"대화를 새로 시작합니다. 무엇이 궁금하신가요?",
-        "ts":fmt_ts(datetime.now(TZ))
-    }]
-if "generating" not in st.session_state:
-    st.session_state["generating"] = False
-if "pending_idx" not in st.session_state:
-    st.session_state["pending_idx"] = None
-if "pending_question" not in st.session_state:
-    st.session_state["pending_question"] = ""
-
-# ------------------------
-# 상태 초기화 (입력창 렌더 전)
-# ------------------------
-for k, v in {
-    "messages": [{
-        "role":"assistant",
-        "content":"대화를 새로 시작합니다. 무엇이 궁금하신가요?",
+        "role": "assistant",
+        "content": "대화를 새로 시작합니다. 무엇이 궁금하신가요?",
         "ts": fmt_ts(datetime.now(TZ))
-    }],
+    }]
+
+for k, v in {
     "chat_input": "",
     "is_generating": False,
     "to_process": False,     # 전송 직후 처리 플래그
@@ -179,8 +165,6 @@ for k, v in {
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
-
-
 
 # ------------------------
 # 메시지 렌더러
@@ -221,78 +205,61 @@ def render_messages(msgs, placeholder):
             )
     placeholder.markdown("\n".join(html_parts), unsafe_allow_html=True)
 
-
-
-
 # ------------------------
 # 헤더 + 메시지 영역
 # ------------------------
 st.title("🧙‍♂️ 우리 연금술사")
 messages_ph = st.empty()
 
+# 기존 메시지 표시
+render_messages(st.session_state["messages"], messages_ph)
+
 # ------------------------
 # 입력 폼
 # ------------------------
-# ---- 채팅폼 (제출 먼저 처리 → 같은 런에서 두 번 렌더) ----
-# 상태 초기화
-if "is_generating" not in st.session_state:
-    st.session_state["is_generating"] = False
-if "chat_input" not in st.session_state:
-    st.session_state["chat_input"] = ""
-if "reset_chat_input" not in st.session_state:
-    st.session_state["reset_chat_input"] = False
+clicked = False
+if not st.session_state.get("is_generating", False):
+    st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
+    c1, c2 = st.columns([1, 0.14])
 
-# ✅ 이전 런에서 reset 요청이 있었다면, 위젯을 그리기 전에 비워준다
-if st.session_state["reset_chat_input"]:
-    st.session_state["chat_input"] = ""
-    st.session_state["reset_chat_input"] = False
+    user_q = c1.text_input(
+        "질문을 입력하세요...",
+        key="chat_input",
+        label_visibility="collapsed",
+        placeholder="예) 삼성전자 전망 알려줘"
+    )
 
+    clicked = c2.button(
+        "➤",
+        use_container_width=True,
+        disabled=st.session_state.get("is_generating", False)
+    )
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
-# --- Dock 입력 영역 ---
-st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
-c1, c2 = st.columns([1, 0.14])
-
-user_q = c1.text_input(
-    "질문을 입력하세요...",
-    key="chat_input",
-    label_visibility="collapsed",
-    placeholder="예) 삼성전자 전망 알려줘"
-)
-
-clicked = c2.button(
-    "➤",
-    use_container_width=True,
-    disabled=st.session_state.get("is_generating", False)
-)
-st.markdown('</div></div>', unsafe_allow_html=True)
-
-# 버튼만 전송 트리거
-final_q = (st.session_state["chat_input"] or "").strip()
+final_q = (st.session_state.get("chat_input", "") or "").strip()
 if clicked and final_q and not st.session_state.get("is_generating", False):
-    st.session_state["is_generating"] = True
-
     now = fmt_ts(datetime.now(TZ))
-    # 1) 유저 말풍선
-    st.session_state["messages"].append({
-        "role": "user", "content": final_q, "ts": now
-    })
-    # 2) assistant pending 말풍선
+    st.session_state["messages"].append({"role": "user", "content": final_q, "ts": now})
     st.session_state["messages"].append({
         "role": "assistant", "content": "", "ts": now, "pending": True
     })
-    pending_idx = len(st.session_state["messages"]) - 1
+    st.session_state["pending_idx"] = len(st.session_state["messages"]) - 1
+    st.session_state["queued_q"] = final_q
+    st.session_state["chat_input"] = ""
+    st.session_state["is_generating"] = True
+    st.session_state["to_process"] = True
+    st.rerun()
 
-    # 3) 첫 렌더(펜딩 보여주기)
-    render_messages(st.session_state["messages"], messages_ph)
-
-    # 4) 생성 실행
+if st.session_state.get("to_process", False):
+    final_q = st.session_state.get("queued_q", "")
+    pending_idx = st.session_state.get("pending_idx")
     sources, ans, result = [], "관련 정보를 찾을 수 없습니다.", {}
     try:
         if svc:
             result = svc.answer(final_q) or {}
             ans = (
                 result.get("answer") or result.get("output_text") or
-                result.get("output")  or result.get("content") or ""
+                result.get("output") or result.get("content") or ""
             ).strip() or ans
             sources = (
                 result.get("source_documents") or
@@ -304,20 +271,14 @@ if clicked and final_q and not st.session_state.get("is_generating", False):
     except Exception as e:
         ans = f"오류 발생: {e}"
 
-    # 5) pending 교체 → 두 번째 렌더
     st.session_state["messages"][pending_idx] = {
         "role": "assistant",
         "content": ans,
         "sources": sources,
         "ts": fmt_ts(datetime.now(TZ))
     }
-    render_messages(st.session_state["messages"], messages_ph)
-
-    # 6) 입력창/상태 초기화 (딕셔너리 방식!)
     st.session_state["is_generating"] = False
-    st.session_state["reset_chat_input"] = True
+    st.session_state["to_process"] = False
+    st.session_state["queued_q"] = ""
+    st.session_state["pending_idx"] = None
     st.rerun()
-# ------------------------
-# 마지막 안전 렌더
-# ------------------------
-render_messages(st.session_state["messages"], messages_ph)
