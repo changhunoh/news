@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import vertexai
 from vertexai.language_models import TextEmbeddingModel, TextEmbeddingInput
-from vertexai.generative_models import GenerativeModel
+from vertexai.generative_models import GenerativeModel, SafetySetting, HarmCategory, HarmBlockThreshold
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -62,7 +62,6 @@ class NewsReportService:
         self.location = location or os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
         if not self.project:
             raise RuntimeError("GOOGLE_CLOUD_PROJECT required")
-
         sa_info = None
         try:
             sa_info = getattr(st, "secrets", {}).get("gcp_service_account", None)  # type: ignore[attr-defined]
@@ -241,13 +240,11 @@ class NewsReportService:
 
         prompt = f"""
 당신은 주식시장과 연금에 정통한 전문 애널리스트입니다.
-아래 컨텍스트를 바탕으로 {stock or "대상"} 종목의 가격 결정에 중요한 핵심정보를 요약하세요.
+아래 컨텍스트를 바탕으로 {stock} 종목의 가격 결정에 중요한 핵심정보를 요약하세요.
+문단 2~3개, 전체 350~450단어 내, 수치는 `백틱`으로 표시할 것.
 
 [작성 지침]
 1) 답변은 3단락 이상
- (1) 현황 요약
- (2) 원인/맥락
- (3) 향후 전망 및 투자자 조언
 2) 근거 없는 내용은 쓰지 말 것(모호하면 '관련된 정보를 찾을 수 없습니다.')
 
 [대상 종목]
@@ -389,11 +386,6 @@ class NewsReportService:
         except Exception:
             return 0
 
-
-if __name__ == "__main__":
-    svc = NewsReportService(top_k=5, use_rerank=False)
-    result = svc.answer_5_stocks_and_reduce(["AAPL", "NVDA", "TSLA", "MSFT", "AMZN"])
-    print((result.get("final_report") or "")[:2000])
 
 
 
