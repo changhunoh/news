@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import vertexai
 from vertexai.language_models import TextEmbeddingModel, TextEmbeddingInput
-from vertexai.generative_models import GenerativeModel, SafetySetting, HarmCategory, HarmBlockThreshold
+from vertexai.generative_models import GenerativeModel, SafetySetting, HarmCategory, HarmBlockThreshold, GenerationConfig
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -144,7 +144,7 @@ class NewsReportService:
     @property
     def rag_model(self) -> GenerativeModel:
         self._ensure_models()
-        return self._thread_local.gen_model
+        return self._thread_local.rag_model
 
     def _ensure_stock_index(self) -> None:
         """루트 'stock'에 keyword 인덱스 보장(없으면 생성)."""
@@ -246,6 +246,12 @@ class NewsReportService:
     def rerank(self, question: str, docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         return (docs or [])[: self.top_k]
 
+    def _gen_config(self, temperature: float = 0.2) -> GenerationConfig:
+        # 필요 시 여기서 top_p/top_k 도 조절 가능
+        return GenerationConfig(temperature=temperature)
+
+
+    
     # ----------------- Generate -----------------
     def generate(self, question: str, docs: List[Dict[str, Any]], stock: Optional[str] = None) -> str:
         if not docs:
@@ -417,6 +423,7 @@ class NewsReportService:
             return int(getattr(res, "count", 0))
         except Exception:
             return 0
+
 
 
 
