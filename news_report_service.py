@@ -152,12 +152,11 @@ class NewsReportService:
         q_filter = None
         if stock:
             # 둘 중 어느 구조든 잡히도록 OR(should) 조건
-            stock_conditions = [
-                FieldCondition(key="stock", match=MatchValue(value=stock)),
-                FieldCondition(key="metadata.stock", match=MatchValue(value=stock)),
-            ]
-            q_filter = Filter(should=stock_conditions)
-
+            q_filter = Filter(
+                must = [
+                    FieldCondition(key="metadata.stock", match=MatchValue(value=stock))
+                ]
+            )
         hits = self._tl_qc().search(
             collection_name=self.collection,
             query_vector=qv,
@@ -398,3 +397,4 @@ if __name__ == "__main__":
     for r in result.get("results", []):
         print(f"\n--- [{r.get('stock','')}] ---")
         print((r.get("answer") or "")[:1200])
+
