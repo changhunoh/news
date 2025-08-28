@@ -53,7 +53,7 @@ st.markdown("""
 /* 채팅 메시지 */
 .chat-row {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     margin: 16px 0;
     align-items: flex-start;
 }
@@ -64,6 +64,7 @@ st.markdown("""
 
 .user-row {
     justify-content: flex-end;
+    gap: 6px;
 }
 
 /* 아바타 */
