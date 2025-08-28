@@ -48,10 +48,6 @@ st.markdown("""
     max-width: 800px;
     margin: 0 auto;
     padding: 20px;
-    background: #ffffff;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    border: 1px solid #f1f5f9;
 }
 
 /* 채팅 메시지 */
@@ -227,11 +223,6 @@ h1 {
 /* 채팅 영역 여백 */
 .chat-area {
     margin-bottom: 20px;
-    background: #fafbfc;
-    border-radius: 12px;
-    padding: 16px;
-    border: 1px solid #e5e7eb;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
 
