@@ -269,7 +269,7 @@ class NewsReportService:
         try:
             resp = self.gen_model.generate_content(
                 prompt,
-                generation_config={"temperature": 0.2, "max_output_tokens": 768},
+                generation_config={"temperature": 0.2},
             )
             return (getattr(resp, "text", None) or "").strip()
         except Exception as e:
@@ -382,7 +382,7 @@ class NewsReportService:
         try:
             resp = self.gen_model.generate_content(
                 prompt,
-                generation_config={"temperature": 0.25, "max_output_tokens": 1024},
+                generation_config={"temperature": 0.0},
             )
             return (getattr(resp, "text", None) or "").strip()
         except Exception as e:
@@ -426,5 +426,6 @@ if __name__ == "__main__":
     for r in result.get("results", []):
         print(f"\n--- [{r.get('stock','')}] ---")
         print((r.get("answer") or "")[:1200])
+
 
 
