@@ -25,7 +25,7 @@ class NewsQnAService:
         qdrant_key: str | None = None,
         collection: str = "stock_news",
         embed_model_name: str = "gemini-embedding-001",
-        gen_model_name: str = "gemini-2.5-pro",
+        gen_model_name: str = "gemini-2.5-flash-lite",
         embed_dim: int = 3072,
         top_k: int = 5,
         rerank_top_k: int = 5,
@@ -61,7 +61,7 @@ class NewsQnAService:
 
         self.collection = collection or os.getenv("COLLECTION_NAME", "stock_news")
         self.embed_model_name = embed_model_name or os.getenv("EMBED_MODEL_NAME", "gemini-embedding-001")
-        self.gen_model_name = gen_model_name or os.getenv("GENAI_MODEL_NAME", "gemini-2.5-pro")
+        self.gen_model_name = gen_model_name or os.getenv("GENAI_MODEL_NAME", "gemini-2.5-flash-lite")
         self.embed_dim = int(embed_dim or int(os.getenv("EMBED_DIM", "3072")))
         self.top_k = int(top_k or int(os.getenv("DEFAULT_TOP_K", "5")))
         self.rerank_top_k = int(rerank_top_k or int(os.getenv("RERANK_TOP_K", "5")))
