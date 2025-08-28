@@ -42,6 +42,24 @@ def _avatar_html(role: str) -> str:
 # CSS 스타일
 # ------------------------
 st.markdown("""
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        // 복사 성공 시 버튼 스타일 변경
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '✓ 복사됨';
+        btn.classList.add('copied');
+        
+        setTimeout(function() {
+            btn.innerHTML = originalText;
+            btn.classList.remove('copied');
+        }, 2000);
+    }).catch(function(err) {
+        console.error('복사 실패:', err);
+    });
+}
+</script>
 <style>
 /* 전체 레이아웃 */
 .main {
@@ -212,6 +230,33 @@ h1 {
     margin-bottom: 20px;
 }
 
+/* 복사 버튼 */
+.copy-btn {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: #6b7280;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.copy-btn:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.copy-btn.copied {
+    background: #10b981;
+    color: white;
+    border-color: #10b981;
+}
+
 /* 반응형 */
 @media (max-width: 768px) {
     .bubble {
@@ -286,10 +331,12 @@ def render_messages(msgs, placeholder):
                 )
             else:
                 text=_linkify(_escape_html(m.get("content","")))
+                content_text = m.get("content","")
                 html_parts.append(
                     "<div class='chat-row bot-row'>"
                     f"{_avatar_html('assistant')}"
                     f"<div><div class='bubble bot'>{text}</div>"
+                    f"<button class='copy-btn' onclick='copyToClipboard(`{content_text.replace('`', '\\`').replace('\\', '\\\\')}`)'>📋 복사</button>"
                     f"<div class='time'>{ts}</div></div></div>"
                 )
         else: # user
