@@ -51,103 +51,101 @@ def _fmt_link(md: Dict[str, Any]) -> str:
 # -----------------------------
 # Service 인스턴스 (캐시)
 # -----------------------------
-"""
-벡터DB 페이로드 확인 필요시 활성화
-def sidebar_qdrant_raw_payload_browser(svc):
-    """
-    Qdrant 컬렉션에서 payload 원본 그대로를 페이지 단위로 조회/표시/다운로드.
-    - 서버 필터/인덱스 불필요 (scroll only)
-    - offset 기반 페이지 이동
-    - 클라이언트 측 표시 개수 제한 및 다운로드(JSON / NDJSON)
-    """
-    st.sidebar.subheader("🧾 Qdrant Raw Payload Browser")
+# 벡터DB 페이로드 확인 필요시 활성화
+# def sidebar_qdrant_raw_payload_browser(svc):
+#     """
+#     Qdrant 컬렉션에서 payload 원본 그대로를 페이지 단위로 조회/표시/다운로드.
+#     - 서버 필터/인덱스 불필요 (scroll only)
+#     - offset 기반 페이지 이동
+#     - 클라이언트 측 표시 개수 제한 및 다운로드(JSON / NDJSON)
+#     """
+#     st.sidebar.subheader("🧾 Qdrant Raw Payload Browser")
 
-    col_name = getattr(svc, "collection", "stock_news")
-    st.sidebar.caption(f"Collection: `{col_name}`")
+#     col_name = getattr(svc, "collection", "stock_news")
+#     st.sidebar.caption(f"Collection: `{col_name}`")
 
-    page_size = st.sidebar.number_input("페이지 크기", min_value=5, max_value=500, value=30, step=5)
-    show_max = st.sidebar.number_input("표시할 개수(상위)", min_value=1, max_value=200, value=20, step=1)
-    as_list_view = st.sidebar.toggle("한 번에 JSON 배열로 보기", value=False)
+#     page_size = st.sidebar.number_input("페이지 크기", min_value=5, max_value=500, value=30, step=5)
+#     show_max = st.sidebar.number_input("표시할 개수(상위)", min_value=1, max_value=200, value=20, step=1)
+#     as_list_view = st.sidebar.toggle("한 번에 JSON 배열로 보기", value=False)
 
-    # 상태 저장
-    if "raw_points" not in st.session_state: st.session_state["raw_points"] = []
-    if "raw_offset" not in st.session_state: st.session_state["raw_offset"] = None
-    if "raw_next" not in st.session_state: st.session_state["raw_next"] = None
+#     # 상태 저장
+#     if "raw_points" not in st.session_state: st.session_state["raw_points"] = []
+#     if "raw_offset" not in st.session_state: st.session_state["raw_offset"] = None
+#     if "raw_next" not in st.session_state: st.session_state["raw_next"] = None
 
-    def _scroll(limit_val: int, offset_val=None):
-        # 필터 없이 payload만 조회
-        return svc.qc.scroll(
-            collection_name=col_name,
-            limit=int(limit_val),
-            with_payload=True,
-            with_vectors=False,
-            offset=offset_val,
-        )
+#     def _scroll(limit_val: int, offset_val=None):
+#         # 필터 없이 payload만 조회
+#         return svc.qc.scroll(
+#             collection_name=col_name,
+#             limit=int(limit_val),
+#             with_payload=True,
+#             with_vectors=False,
+#             offset=offset_val,
+#         )
 
-    # 버튼들
-    c1, c2, c3 = st.sidebar.columns(3)
-    if c1.button("⏮ 처음부터"):
-        st.session_state["raw_offset"] = None
-        pts, nxt = _scroll(page_size, None)
-        st.session_state["raw_points"] = pts
-        st.session_state["raw_next"] = nxt
-    if c2.button("🔄 새로고침"):
-        pts, nxt = _scroll(page_size, st.session_state.get("raw_offset"))
-        st.session_state["raw_points"] = pts
-        st.session_state["raw_next"] = nxt
-    if c3.button("⏭ 다음 페이지"):
-        pts, nxt = _scroll(page_size, st.session_state.get("raw_next"))
-        st.session_state["raw_points"] = pts
-        st.session_state["raw_offset"] = st.session_state.get("raw_next")
-        st.session_state["raw_next"] = nxt
+#     # 버튼들
+#     c1, c2, c3 = st.sidebar.columns(3)
+#     if c1.button("⏮ 처음부터"):
+#         st.session_state["raw_offset"] = None
+#         pts, nxt = _scroll(page_size, None)
+#         st.session_state["raw_points"] = pts
+#         st.session_state["raw_next"] = nxt
+#     if c2.button("🔄 새로고침"):
+#         pts, nxt = _scroll(page_size, st.session_state.get("raw_offset"))
+#         st.session_state["raw_points"] = pts
+#         st.session_state["raw_next"] = nxt
+#     if c3.button("⏭ 다음 페이지"):
+#         pts, nxt = _scroll(page_size, st.session_state.get("raw_next"))
+#         st.session_state["raw_points"] = pts
+#         st.session_state["raw_offset"] = st.session_state.get("raw_next")
+#         st.session_state["raw_next"] = nxt
 
-    # 초회 자동 로드
-    if not st.session_state["raw_points"]:
-        pts, nxt = _scroll(page_size, None)
-        st.session_state["raw_points"] = pts
-        st.session_state["raw_next"] = nxt
+#     # 초회 자동 로드
+#     if not st.session_state["raw_points"]:
+#         pts, nxt = _scroll(page_size, None)
+#         st.session_state["raw_points"] = pts
+#         st.session_state["raw_next"] = nxt
 
-    points = st.session_state["raw_points"]
-    next_off = st.session_state.get("raw_next")
-    st.sidebar.caption(f"현재 페이지 개수: {len(points)}  |  next_offset: `{next_off}`")
+#     points = st.session_state["raw_points"]
+#     next_off = st.session_state.get("raw_next")
+#     st.sidebar.caption(f"현재 페이지 개수: {len(points)}  |  next_offset: `{next_off}`")
 
-    # payload 원본 목록
-    payloads: List[Dict[str, Any]] = []
-    for p in points:
-        payloads.append(p.payload or {})
+#     # payload 원본 목록
+#     payloads: List[Dict[str, Any]] = []
+#     for p in points:
+#         payloads.append(p.payload or {})
 
-    # 표시
-    to_show = payloads[: int(show_max)]
-    st.sidebar.markdown(f"**표시 중: {len(to_show)}건 (총 {len(payloads)}건 중)**")
+#     # 표시
+#     to_show = payloads[: int(show_max)]
+#     st.sidebar.markdown(f"**표시 중: {len(to_show)}건 (총 {len(payloads)}건 중)**")
 
-    if as_list_view:
-        # JSON 배열로 한 번에 보기
-        st.sidebar.json(to_show)
-    else:
-        # 개별 payload 원본을 펼침/축소로 보기
-        for i, pl in enumerate(to_show, start=1):
-            with st.sidebar.expander(f"payload #{i}", expanded=False):
-                st.json(pl)
+#     if as_list_view:
+#         # JSON 배열로 한 번에 보기
+#         st.sidebar.json(to_show)
+#     else:
+#         # 개별 payload 원본을 펼침/축소로 보기
+#         for i, pl in enumerate(to_show, start=1):
+#             with st.sidebar.expander(f"payload #{i}", expanded=False):
+#                 st.json(pl)
 
-    # 다운로드 (JSON / NDJSON)
-    json_data = json.dumps(to_show, ensure_ascii=False, indent=2)
-    ndjson_data = "\n".join(json.dumps(obj, ensure_ascii=False) for obj in to_show)
+#     # 다운로드 (JSON / NDJSON)
+#     json_data = json.dumps(to_show, ensure_ascii=False, indent=2)
+#     ndjson_data = "\n".join(json.dumps(obj, ensure_ascii=False) for obj in to_show)
 
-    st.sidebar.download_button(
-        "⬇️ Download (JSON 배열)",
-        data=json_data.encode("utf-8"),
-        file_name=f"{col_name}_payloads.json",
-        mime="application/json",
-        use_container_width=True,
-    )
-    st.sidebar.download_button(
-        "⬇️ Download (NDJSON)",
-        data=ndjson_data.encode("utf-8"),
-        file_name=f"{col_name}_payloads.ndjson",
-        mime="application/x-ndjson",
-        use_container_width=True,
-    )
-"""
+#     st.sidebar.download_button(
+#         "⬇️ Download (JSON 배열)",
+#         data=json_data.encode("utf-8"),
+#         file_name=f"{col_name}_payloads.json",
+#         mime="application/json",
+#         use_container_width=True,
+#     )
+#     st.sidebar.download_button(
+#         "⬇️ Download (NDJSON)",
+#         data=ndjson_data.encode("utf-8"),
+#         file_name=f"{col_name}_payloads.ndjson",
+#         mime="application/x-ndjson",
+#         use_container_width=True,
+#     )
 
 # -----------------------------
 # UI
@@ -247,6 +245,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - score(raw): `{score}` • distance_mode: `{distance_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
