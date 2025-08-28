@@ -244,12 +244,41 @@ class NewsReportService:
     # ----------------- (선택) 리랭크 -----------------
     def rerank(self, question: str, docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         return (docs or [])[: self.top_k]
-
+    
+    def _safe_settings(self):
+        return [
+            SafetySetting(category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                          threshold=HarmBlockThreshold.BLOCK_NONE),
+            SafetySetting(category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                          threshold=HarmBlockThreshold.BLOCK_NONE),
+            SafetySetting(category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                          threshold=HarmBlockThreshold.BLOCK_NONE),
+            SafetySetting(category=HarmCategory.HARM_CATEGORY_HARASSMENT,
+                          threshold=HarmBlockThreshold.BLOCK_NONE),
+        ]    
     def _gen_config(self, temperature: float = 0.2) -> GenerationConfig:
         # 필요 시 여기서 top_p/top_k 도 조절 가능
         return GenerationConfig(temperature=temperature)
 
-
+    def _extract_text(self, resp) -> str:
+        # vertexai SDK 응답을 최대한 안전하게 텍스트로 변환
+        try:
+            if getattr(resp, "text", None):
+                return resp.text.strip()
+            cands = getattr(resp, "candidates", None) or []
+            if not cands:
+                return ""
+            first = cands[0]
+            content = getattr(first, "content", None)
+            parts = getattr(content, "parts", None) or []
+            out = []
+            for p in parts:
+                t = getattr(p, "text", None)
+                if t:
+                    out.append(t)
+            return "\n".join(out).strip()
+        except Exception:
+            return ""
     
     # ----------------- Generate -----------------
     def generate(self, question: str, docs: List[Dict[str, Any]], stock: Optional[str] = None) -> str:
@@ -282,9 +311,13 @@ class NewsReportService:
             # rag_model (1.5 pro) 사용
             resp = self._thread_local.rag_model.generate_content(
                 prompt,
-                generation_config={"temperature": 0.0})
-                
-            return (getattr(resp, "text", None) or "").strip()
+                generation_config=self._gen_config(temperature=0.0),
+                safety_settings=self._safe_settings(),
+            )
+            text = self._extract_text(resp)
+            if not text:
+                return "답변 생성에 실패했습니다. 안전필터 또는 토큰 한도에 의해 응답이 비었습니다."
+            return text
         except Exception as e:
             return f"답변 생성 중 오류가 발생했습니다: {e}"
 
@@ -341,6 +374,10 @@ class NewsReportService:
                 elif url:         out.append(url)
             return out
     
+    def _hard_trunc(s: str, limit=800):
+        s = s or ""
+        return s if len(s) <= limit else s[:limit] + "..."
+    
         lines, source_lines = [], []
         for r in per_stock_results:
             stock = r["stock"]
@@ -356,7 +393,7 @@ class NewsReportService:
                 seen.add(s); dedup.append(s)
     
         # ✅ f-string 안에 백슬래시가 들어가던 join을 미리 계산
-        parts_joined   = "\n\n".join(lines)
+        parts_joined   = "\n\n".join(lines[:5])
         sources_joined = "\n".join(dedup[:12])
     
         prompt = f"""
@@ -380,15 +417,10 @@ class NewsReportService:
         try:
             resp = self._thread_local.rag_model.generate_content(
                 prompt, 
-                generation_config={"temperature": 0.25},
-                safety_settings={
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-            }
-            )
-            return (getattr(resp, "text", None) or "").strip()
+                generation_config=self._gen_config(temperature=0.25),
+                safety_settings=self._safe_settings())
+            text = self._extract_text(resp)
+            return text or "최종 통합 생성에 실패했습니다. 안전필터 또는 토큰 한도에 의해 응답이 비었습니다."
         except Exception as e:
             return f"최종 통합 생성 오류: {e}"
 
@@ -415,6 +447,7 @@ class NewsReportService:
             return int(getattr(res, "count", 0))
         except Exception:
             return 0
+
 
 
 
