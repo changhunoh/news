@@ -43,21 +43,57 @@ def _avatar_html(role: str) -> str:
 # ------------------------
 st.markdown("""
 <script>
-function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(function() {
-        // 복사 성공 시 버튼 스타일 변경
-        const btn = event.target;
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '✓ 복사됨';
-        btn.classList.add('copied');
-        
-        setTimeout(function() {
-            btn.innerHTML = originalText;
-            btn.classList.remove('copied');
-        }, 2000);
-    }).catch(function(err) {
-        console.error('복사 실패:', err);
-    });
+function copyToClipboard(text, buttonElement) {
+    // 텍스트를 안전하게 복사
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(function() {
+            // 복사 성공 시 버튼 스타일 변경
+            const originalText = buttonElement.innerHTML;
+            buttonElement.innerHTML = '✓ 복사됨';
+            buttonElement.classList.add('copied');
+            
+            setTimeout(function() {
+                buttonElement.innerHTML = originalText;
+                buttonElement.classList.remove('copied');
+            }, 2000);
+        }).catch(function(err) {
+            console.error('복사 실패:', err);
+            // 폴백 방법 사용
+            fallbackCopyTextToClipboard(text, buttonElement);
+        });
+    } else {
+        // 폴백 방법 사용
+        fallbackCopyTextToClipboard(text, buttonElement);
+    }
+}
+
+function fallbackCopyTextToClipboard(text, buttonElement) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            const originalText = buttonElement.innerHTML;
+            buttonElement.innerHTML = '✓ 복사됨';
+            buttonElement.classList.add('copied');
+            
+            setTimeout(function() {
+                buttonElement.innerHTML = originalText;
+                buttonElement.classList.remove('copied');
+            }, 2000);
+        }
+    } catch (err) {
+        console.error('폴백 복사 실패:', err);
+    }
+    
+    document.body.removeChild(textArea);
 }
 </script>
 <style>
@@ -305,6 +341,7 @@ for k, v in {
     "to_process": False,
     "queued_q": "",
     "pending_idx": None,
+    "input_key": 0,  # 입력창 키를 동적으로 변경하기 위한 카운터
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
@@ -338,7 +375,7 @@ def render_messages(msgs, placeholder):
                     "<div class='chat-row bot-row'>"
                     f"{_avatar_html('assistant')}"
                     f"<div><div class='bubble bot'>{text}</div>"
-                    f"<button class='copy-btn' onclick='copyToClipboard(\"{escaped_content}\")'>📋 복사</button>"
+                    f"<button class='copy-btn' onclick='copyToClipboard(\"{escaped_content}\", this)'>📋 복사</button>"
                     f"<div class='time'>{ts}</div></div></div>"
                 )
         else: # user
@@ -372,7 +409,7 @@ col1, col2 = st.columns([1, 0.15])
 with col1:
     user_q = st.text_input(
         "질문을 입력하세요...",
-        key="user_input",
+        key=f"user_input_{st.session_state.get('input_key', 0)}",
         label_visibility="collapsed",
         placeholder="예) 삼성전자 전망 알려줘"
     )
@@ -390,7 +427,8 @@ st.markdown('</div>', unsafe_allow_html=True)
 # ------------------------
 # 메시지 처리
 # ------------------------
-final_q = (st.session_state.get("user_input", "") or "").strip()
+current_input_key = f"user_input_{st.session_state.get('input_key', 0)}"
+final_q = (st.session_state.get(current_input_key, "") or "").strip()
 
 if clicked and final_q and not st.session_state.get("is_generating", False):
     now = fmt_ts(datetime.now(TZ))
@@ -402,6 +440,8 @@ if clicked and final_q and not st.session_state.get("is_generating", False):
     st.session_state["queued_q"] = final_q
     st.session_state["is_generating"] = True
     st.session_state["to_process"] = True
+    # 입력창 초기화를 위해 키 증가
+    st.session_state["input_key"] = st.session_state.get("input_key", 0) + 1
     st.rerun()
 
 if st.session_state.get("to_process", False):
