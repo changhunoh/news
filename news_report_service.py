@@ -51,13 +51,15 @@ class NewsReportService:
         qdrant_key: Optional[str] = None,
         collection: str = "stock_news",
         embed_model_name: str = "gemini-embedding-001",
-        gen_model_name: str = "gemini-2.5-pro",
+        gen_model_name: str = "gemini-2.5-pro", #최종 리포트 모델
+        rag_model_name: str = "gemini-1.5-pro", # RAG 모델
         embed_dim: int = 3072,
         top_k: int = 1,
         rerank_top_k: int = 1,
         use_rerank: bool = False,
     ):
         # ---- GCP & Vertex init ----
+
         self.project = project or os.getenv("GOOGLE_CLOUD_PROJECT")
         self.location = location or os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
         if not self.project:
@@ -96,6 +98,9 @@ class NewsReportService:
         # 프로세스 전역 클라이언트 + 스레드-로컬 클라이언트
         self.qc = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_key)
 
+        self.gen_model_name = gen_model_name
+        self.rag_model_name = rag_model_name
+
         # 모델 핸들 준비
         self._ensure_models()
 
@@ -108,6 +113,10 @@ class NewsReportService:
             or getattr(self._thread_local, "embed_name", None) != self.embed_model_name):
             self._thread_local.embed_model = TextEmbeddingModel.from_pretrained(self.embed_model_name)
             self._thread_local.embed_name = self.embed_model_name
+
+        if not hasattr(self._thread_local, "rag_model") or getattr(self._thread_local, "rag_model_name", None) != self.rag_model_name:
+            self._thread_local.rag_model = GenerativeModel(self.rag_model_name)
+            self._thread_local.rag_model_name = self.rag_model_name
 
         if (not hasattr(self._thread_local, "gen_model")
             or getattr(self._thread_local, "gen_name", None) != self.gen_model_name):
@@ -248,7 +257,7 @@ class NewsReportService:
 2) 근거 없는 내용은 쓰지 말 것(모호하면 '관련된 정보를 찾을 수 없습니다.')
 
 [대상 종목]
-{stock or "N/A"}
+{stock}
 
 [컨텍스트 발췌]
 {ctx}
@@ -257,7 +266,8 @@ class NewsReportService:
 {question}
 """
         try:
-            resp = self.gen_model.generate_content(
+            # rag_model (1.5 pro) 사용
+            resp = self._thread_local.rag_model.generate_content(
                 prompt,
                 generation_config={"temperature": 0.0},
             )
@@ -355,7 +365,7 @@ class NewsReportService:
     {sources_joined}
     """
         try:
-            resp = self.gen_model.generate_content(
+            resp = self._thread_local.gen_model.generate_content(
                 prompt, generation_config={"temperature": 0.25}
             )
             return (getattr(resp, "text", None) or "").strip()
@@ -385,7 +395,3 @@ class NewsReportService:
             return int(getattr(res, "count", 0))
         except Exception:
             return 0
-
-
-
-
