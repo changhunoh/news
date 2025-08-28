@@ -51,35 +51,29 @@ def _fmt_link(md: Dict[str, Any]) -> str:
 # -----------------------------
 # Service 인스턴스 (캐시)
 # -----------------------------
-def sidebar_qdrant_payload_browser(svc):
+def sidebar_qdrant_raw_payload_browser(svc):
     """
-    Qdrant 컬렉션을 '무필터 scroll'로 훑어서 payload(메타데이터)만 빠르게 확인하는 사이드바 도구.
-    - 인덱스 불필요 (서버 필터 안 씀)
-    - 페이지네이션(offset) 지원
-    - 클라이언트 측 간단 필터(부분 문자열)
+    Qdrant 컬렉션에서 payload 원본 그대로를 페이지 단위로 조회/표시/다운로드.
+    - 서버 필터/인덱스 불필요 (scroll only)
+    - offset 기반 페이지 이동
+    - 클라이언트 측 표시 개수 제한 및 다운로드(JSON / NDJSON)
     """
-    st.sidebar.subheader("📦 Qdrant 메타데이터 브라우저")
+    st.sidebar.subheader("🧾 Qdrant Raw Payload Browser")
 
     col_name = getattr(svc, "collection", "stock_news")
     st.sidebar.caption(f"Collection: `{col_name}`")
 
-    # 페이지 크기 & 로컬 필터(부분 문자열)
-    page_size = st.sidebar.number_input("페이지 크기", min_value=5, max_value=200, value=20, step=5)
-    local_filter = st.sidebar.text_input("클라이언트 필터(부분 문자열, 옵션)", value="")
-    show_raw = st.sidebar.toggle("Raw payload 보기(상위 3건)", value=False)
+    page_size = st.sidebar.number_input("페이지 크기", min_value=5, max_value=500, value=30, step=5)
+    show_max = st.sidebar.number_input("표시할 개수(상위)", min_value=1, max_value=200, value=20, step=1)
+    as_list_view = st.sidebar.toggle("한 번에 JSON 배열로 보기", value=False)
 
-    # session_state로 offset/state 관리
-    if "qdr_points" not in st.session_state:
-        st.session_state["qdr_points"] = []
-    if "qdr_offset" not in st.session_state:
-        st.session_state["qdr_offset"] = None
+    # 상태 저장
+    if "raw_points" not in st.session_state: st.session_state["raw_points"] = []
+    if "raw_offset" not in st.session_state: st.session_state["raw_offset"] = None
+    if "raw_next" not in st.session_state: st.session_state["raw_next"] = None
 
-    def _scroll_page(limit_val: int, offset_val=None):
-        """
-        qdrant_client 버전 차이 거의 없음. scroll은 필터 없이 호출.
-        반환: (points, next_offset)
-        """
-        # 최신/구버전 모두 offset 인자를 지원
+    def _scroll(limit_val: int, offset_val=None):
+        # 필터 없이 payload만 조회
         return svc.qc.scroll(
             collection_name=col_name,
             limit=int(limit_val),
@@ -90,73 +84,68 @@ def sidebar_qdrant_payload_browser(svc):
 
     # 버튼들
     c1, c2, c3 = st.sidebar.columns(3)
-    if c1.button("🔄 새로고침"):
-        # 현재 offset 유지하고 페이지 다시 불러오기
-        pts, next_off = _scroll_page(page_size, st.session_state["qdr_offset"])
-        st.session_state["qdr_points"] = pts
-        st.session_state["qdr_next"] = next_off  # 다음 페이지 미리 보관(옵션)
+    if c1.button("⏮ 처음부터"):
+        st.session_state["raw_offset"] = None
+        pts, nxt = _scroll(page_size, None)
+        st.session_state["raw_points"] = pts
+        st.session_state["raw_next"] = nxt
+    if c2.button("🔄 새로고침"):
+        pts, nxt = _scroll(page_size, st.session_state.get("raw_offset"))
+        st.session_state["raw_points"] = pts
+        st.session_state["raw_next"] = nxt
+    if c3.button("⏭ 다음 페이지"):
+        pts, nxt = _scroll(page_size, st.session_state.get("raw_next"))
+        st.session_state["raw_points"] = pts
+        st.session_state["raw_offset"] = st.session_state.get("raw_next")
+        st.session_state["raw_next"] = nxt
 
-    if c2.button("⏭ 다음 페이지"):
-        pts, next_off = _scroll_page(page_size, st.session_state.get("qdr_next"))
-        st.session_state["qdr_points"] = pts
-        st.session_state["qdr_offset"] = st.session_state.get("qdr_next")
-        st.session_state["qdr_next"] = next_off
+    # 초회 자동 로드
+    if not st.session_state["raw_points"]:
+        pts, nxt = _scroll(page_size, None)
+        st.session_state["raw_points"] = pts
+        st.session_state["raw_next"] = nxt
 
-    if c3.button("🔁 처음부터"):
-        st.session_state["qdr_offset"] = None
-        pts, next_off = _scroll_page(page_size, None)
-        st.session_state["qdr_points"] = pts
-        st.session_state["qdr_next"] = next_off
+    points = st.session_state["raw_points"]
+    next_off = st.session_state.get("raw_next")
+    st.sidebar.caption(f"현재 페이지 개수: {len(points)}  |  next_offset: `{next_off}`")
 
-    # 처음 진입 시 첫 페이지 자동 로드(선택)
-    if not st.session_state["qdr_points"]:
-        pts, next_off = _scroll_page(page_size, None)
-        st.session_state["qdr_points"] = pts
-        st.session_state["qdr_next"] = next_off
+    # payload 원본 목록
+    payloads: List[Dict[str, Any]] = []
+    for p in points:
+        payloads.append(p.payload or {})
 
-    points = st.session_state["qdr_points"]
-    next_off = st.session_state.get("qdr_next")
+    # 표시
+    to_show = payloads[: int(show_max)]
+    st.sidebar.markdown(f"**표시 중: {len(to_show)}건 (총 {len(payloads)}건 중)**")
 
-    st.sidebar.caption(f"가져온 개수: {len(points)}  |  next_offset: `{next_off}`")
-
-    # 표시용 행 변환
-    def _mk_row(p) -> Dict[str, Any]:
-        payload = p.payload or {}
-        md = payload.get("metadata") or {}
-        # 자주 쓰는 키만 안전하게 뽑기
-        return {
-            "id": str(getattr(p, "id", "")),
-            "metadata.stock": md.get("stock", ""),
-            "metadata.title": md.get("title", ""),
-            "metadata.url": md.get("url", ""),
-            "metadata.published_at": md.get("published_at", md.get("date", "")),
-        }
-
-    rows = [_mk_row(p) for p in points]
-
-    # 클라이언트 측 문자열 필터(대소문자 무시)
-    if local_filter.strip():
-        q = local_filter.strip().lower()
-        def _hit(row: Dict[str, Any]) -> bool:
-            for v in row.values():
-                try:
-                    if q in str(v).lower():
-                        return True
-                except Exception:
-                    continue
-            return False
-        rows = [r for r in rows if _hit(r)]
-
-    st.sidebar.markdown("**샘플 미리보기**")
-    if rows:
-        st.sidebar.dataframe(rows, use_container_width=True)
+    if as_list_view:
+        # JSON 배열로 한 번에 보기
+        st.sidebar.json(to_show)
     else:
-        st.sidebar.info("표시할 결과가 없습니다.")
+        # 개별 payload 원본을 펼침/축소로 보기
+        for i, pl in enumerate(to_show, start=1):
+            with st.sidebar.expander(f"payload #{i}", expanded=False):
+                st.json(pl)
 
-    if show_raw:
-        st.sidebar.markdown("**Raw payload (상위 3건)**")
-        for p in points[:3]:
-            st.sidebar.json(p.payload or {})
+    # 다운로드 (JSON / NDJSON)
+    json_data = json.dumps(to_show, ensure_ascii=False, indent=2)
+    ndjson_data = "\n".join(json.dumps(obj, ensure_ascii=False) for obj in to_show)
+
+    st.sidebar.download_button(
+        "⬇️ Download (JSON 배열)",
+        data=json_data.encode("utf-8"),
+        file_name=f"{col_name}_payloads.json",
+        mime="application/json",
+        use_container_width=True,
+    )
+    st.sidebar.download_button(
+        "⬇️ Download (NDJSON)",
+        data=ndjson_data.encode("utf-8"),
+        file_name=f"{col_name}_payloads.ndjson",
+        mime="application/x-ndjson",
+        use_container_width=True,
+    )
+
 
 # -----------------------------
 # UI
@@ -198,7 +187,7 @@ if run_btn:
 
     svc =  NewsReportService()
     if svc is not None:
-        sidebar_qdrant_payload_browser(svc)
+        sidebar_qdrant_raw_payload_browser(svc)
     if svc is None:
         st.error("서비스를 초기화할 수 없습니다. 좌측의 Secrets 설정을 확인해 주세요.")
         st.stop()
@@ -253,6 +242,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - score(raw): `{score}` • distance_mode: `{distance_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
