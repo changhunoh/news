@@ -47,7 +47,7 @@ st.markdown("""
 .main {
     max-width: 900px;
     margin: 0 auto;
-    padding: 24px;
+    padding: 12px 24px 20px 24px;
 }
 
 /* 채팅 메시지 */
@@ -231,7 +231,7 @@ div[data-testid="stTextInput"] input:focus {
 /* 헤더 */
 h1 {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 0 0 24px 0;
     color: #1e293b;
     font-size: 2.2rem;
     font-weight: 700;
