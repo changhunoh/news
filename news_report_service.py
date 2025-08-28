@@ -262,7 +262,7 @@ class NewsReportService:
         try:
             resp = self.gen_model.generate_content(
                 prompt,
-                generation_config={"temperature": 0.2, "max_output_tokens": 768},
+                generation_config={"temperature": 0.0},
             )
             return (getattr(resp, "text", None) or "").strip()
         except Exception as e:
@@ -359,7 +359,7 @@ class NewsReportService:
     """
         try:
             resp = self.gen_model.generate_content(
-                prompt, generation_config={"temperature": 0.25, "max_output_tokens": 1024}
+                prompt, generation_config={"temperature": 0.25}
             )
             return (getattr(resp, "text", None) or "").strip()
         except Exception as e:
@@ -394,4 +394,5 @@ if __name__ == "__main__":
     svc = NewsReportService(top_k=5, use_rerank=False)
     result = svc.answer_5_stocks_and_reduce(["AAPL", "NVDA", "TSLA", "MSFT", "AMZN"])
     print((result.get("final_report") or "")[:2000])
+
 
