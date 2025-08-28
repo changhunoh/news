@@ -53,8 +53,8 @@ class NewsReportService:
         embed_model_name: str = "gemini-embedding-001",
         gen_model_name: str = "gemini-2.5-pro",
         embed_dim: int = 3072,
-        top_k: int = 5,
-        rerank_top_k: int = 5,
+        top_k: int = 1,
+        rerank_top_k: int = 1,
         use_rerank: bool = False,
     ):
         # ---- GCP & Vertex init ----
@@ -88,8 +88,8 @@ class NewsReportService:
         self.embed_model_name = embed_model_name or os.getenv("EMBED_MODEL_NAME", "gemini-embedding-001")
         self.gen_model_name = gen_model_name or os.getenv("GENAI_MODEL_NAME", "gemini-2.5-pro")
         self.embed_dim = int(embed_dim or int(os.getenv("EMBED_DIM", "3072")))
-        self.top_k = int(top_k or int(os.getenv("DEFAULT_TOP_K", "5")))
-        self.rerank_top_k = int(rerank_top_k or int(os.getenv("RERANK_TOP_K", "5")))
+        self.top_k = int(top_k or int(os.getenv("DEFAULT_TOP_K", "1")))
+        self.rerank_top_k = int(rerank_top_k or int(os.getenv("RERANK_TOP_K", "1")))
         self.use_rerank = use_rerank
 
         self._dist_mode: Optional[str] = None
@@ -341,7 +341,7 @@ class NewsReportService:
     
         prompt = f"""
     당신은 증권사 리서치센터장입니다.
-    아래 각 종목의 부분 답변을 취합하여, 공통 질의("{base_template}")에 대한 **종합 리포트**를 작성하세요.
+    아래 각 종목의 부분 답변을 취합하여, 공통 질의({base_template})에 대한 **종합 리포트**를 작성하세요.
     
     [요구사항]
     1) 종목별 핵심 뉴스와 가격 영향 경로를 비교 정리(긍/부정, 단기/중기)
@@ -394,5 +394,6 @@ if __name__ == "__main__":
     svc = NewsReportService(top_k=5, use_rerank=False)
     result = svc.answer_5_stocks_and_reduce(["AAPL", "NVDA", "TSLA", "MSFT", "AMZN"])
     print((result.get("final_report") or "")[:2000])
+
 
 
