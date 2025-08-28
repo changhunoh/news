@@ -34,9 +34,9 @@ def _avatar_html(role: str) -> str:
             return f"<div class='avatar'><img src='{ASSISTANT_AVATAR_URL}'/></div>"
         return f"<div class='avatar emoji'>{ASSISTANT_EMOJI}</div>"
     else:
-        if USER_AVATAR_URL:
-            return f"<div class='avatar'><img src='{USER_AVATAR_URL}'/></div>"
-        return f"<div class='avatar emoji'>{USER_EMOJI}</div>"
+        if _AVATAR_URL:
+            return f"<div class='avatar'><img src='{_AVATAR_URL}'/></div>"
+        return f"<div class='avatar emoji'>{_EMOJI}</div>"
 
 # ------------------------
 # CSS 스타일
@@ -64,7 +64,7 @@ st.markdown("""
 
 .user-row {
     justify-content: flex-end;
-    gap: 1px;
+    gap: 8px;
 }
 
 /* 아바타 */
@@ -117,7 +117,7 @@ st.markdown("""
         0 8px 16px rgba(0, 0, 0, 0.04);
 }
 
-.bubble.user {
+.bubble. {
     background: #0b62e6;
     color: #fff;
     border: 0;
@@ -309,13 +309,13 @@ def render_messages(msgs, placeholder):
                     f"<div><div class='bubble bot'>{text}</div>"
                     f"<div class='time'>{ts}</div></div></div>"
                 )
-        else: # user
+        else: # 
             text=_linkify(_escape_html(m.get("content","")))
             html_parts.append(
-                "<div class='chat-row user-row'>"
-                f"<div><div class='bubble user'>{text}</div>"
+                "<div class='chat-row -row'>"
+                f"<div><div class='bubble '>{text}</div>"
                 f"<div class='time' style='text-align:right'>{ts}</div></div>"
-                f"{_avatar_html('user')}"
+                f"{_avatar_html('')}"
                 "</div>"
             )
     placeholder.markdown("\n".join(html_parts), unsafe_allow_html=True)
