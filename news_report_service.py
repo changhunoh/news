@@ -1,12 +1,33 @@
+# news_report_service.py
+# ------------------------------------------------------------
+# Qdrant + Vertex AI (Gemini / Embedding) 기반 RAG 서비스
+#   - 단일 질문(answer)
+#   - 5개 종목 병렬(Map) → 최종 통합(Reduce)
+# ------------------------------------------------------------
+
 import os, re, threading
 from typing import List, Dict, Any, Optional, TypedDict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import vertexai
 from vertexai.language_models import TextEmbeddingModel, TextEmbeddingInput
 from vertexai.generative_models import GenerativeModel
+
 from qdrant_client import QdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue
-from google.oauth2 import service_account
-import streamlit as st  # Streamlit secrets 사용 시
+
+# Streamlit 환경에서도/아니어도 동작하도록 안전 import
+try:
+    import streamlit as st
+except Exception:  # streamlit 미설치 환경
+    class _DummySt:
+        secrets = {}
+    st = _DummySt()
+
+try:
+    from google.oauth2 import service_account
+except Exception:
+    service_account = None  # 외부환경용
 
 
 class RAGState(TypedDict):
@@ -14,8 +35,9 @@ class RAGState(TypedDict):
     documents: List[Dict[str, Any]]
     answer: Optional[str]
 
+
 class NewsReportService:
-    """Qdrant + Gemini 기반 RAG 서비스"""
+    """Qdrant + Gemini 기반 RAG 서비스 (단일/다중 종목 대응)"""
     _thread_local = threading.local()
 
     def __init__(
@@ -32,29 +54,29 @@ class NewsReportService:
         rerank_top_k: int = 5,
         use_rerank: bool = False,
     ):
+        # ---- GCP 설정 ----
         self.project = project or os.getenv("GOOGLE_CLOUD_PROJECT")
         self.location = location or os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
         if not self.project:
             raise RuntimeError("GOOGLE_CLOUD_PROJECT required")
 
-        # 🔐 Streamlit secrets에서 서비스계정 읽어 credentials 생성
+        # 서비스계정(st.secrets) → Credentials
         sa_info = None
         try:
-            sa_info = st.secrets.get("gcp_service_account", None)
+            sa_info = getattr(st, "secrets", {}).get("gcp_service_account", None)  # type: ignore[attr-defined]
         except Exception:
             sa_info = None
 
         creds = None
-        if sa_info:
+        if sa_info and service_account is not None:
             creds = service_account.Credentials.from_service_account_info(
                 dict(sa_info),
                 scopes=["https://www.googleapis.com/auth/cloud-platform"],
             )
 
-        # ✅ credentials까지 명시해서 초기화
+        vertexai.init(project=self.project, location=self.location, credentials=creds)
 
-        vertexai.init(project=self.project, location=self.location,credentials=creds)
-
+        # ---- Qdrant 설정 ----
         self.qdrant_url = qdrant_url or os.getenv("QDRANT_URL")
         self.qdrant_key = qdrant_key or os.getenv("QDRANT_API_KEY")
         if not (self.qdrant_url and self.qdrant_key):
@@ -68,19 +90,33 @@ class NewsReportService:
         self.rerank_top_k = int(rerank_top_k or int(os.getenv("RERANK_TOP_K", "5")))
         self.use_rerank = use_rerank
 
+        # distance 모드 캐시
+        self._dist_mode: Optional[str] = None
+
+        # 프로세스 단일 Qdrant 클라 (가벼운 작업용)
         self.qc = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_key)
 
-        # 모델은 스레드 로컬 캐싱
+        # 모델 & 스레드-로컬 캐시 준비
         self._ensure_models()
 
-    # ---------- internals ----------
+    # ----------------- 내부 유틸 -----------------
     def _ensure_models(self):
-        if not hasattr(self._thread_local, "embed_model") or getattr(self._thread_local, "embed_name", None) != self.embed_model_name:
+        """스레드-로컬 모델 핸들 캐시"""
+        if (not hasattr(self._thread_local, "embed_model")
+            or getattr(self._thread_local, "embed_name", None) != self.embed_model_name):
             self._thread_local.embed_model = TextEmbeddingModel.from_pretrained(self.embed_model_name)
             self._thread_local.embed_name = self.embed_model_name
-        if not hasattr(self._thread_local, "gen_model") or getattr(self._thread_local, "gen_name", None) != self.gen_model_name:
+
+        if (not hasattr(self._thread_local, "gen_model")
+            or getattr(self._thread_local, "gen_name", None) != self.gen_model_name):
             self._thread_local.gen_model = GenerativeModel(self.gen_model_name)
             self._thread_local.gen_name = self.gen_model_name
+
+    def _tl_qc(self) -> QdrantClient:
+        """스레드-로컬 Qdrant 클라이언트 (병렬 안전)"""
+        if not hasattr(self._thread_local, "qc"):
+            self._thread_local.qc = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_key)
+        return self._thread_local.qc
 
     @property
     def embed_model(self) -> TextEmbeddingModel:
@@ -92,40 +128,37 @@ class NewsReportService:
         self._ensure_models()
         return self._thread_local.gen_model
 
-    def _embed_query(self, text: str) -> list[float]:
+    # ----------------- 임베딩 -----------------
+    def _embed_query(self, text: str) -> List[float]:
         inp = [TextEmbeddingInput(text=text or "", task_type="RETRIEVAL_QUERY")]
         return self.embed_model.get_embeddings(inp, output_dimensionality=self.embed_dim)[0].values
 
-    # ---------- RAG steps ----------
+    # ----------------- Payload 텍스트 추출 -----------------
     @staticmethod
     def _extract_text_from_payload(payload: dict) -> str:
-        """
-        payload["doc"]가 문자열이거나, dict(예: {"content": "...", "text": "...", ...})일 수 있으니 모두 커버
-        """
         if not isinstance(payload, dict):
             return ""
         doc = payload.get("doc")
         if isinstance(doc, str):
             return doc
         if isinstance(doc, dict):
-            # 흔한 텍스트 키들 우선순위
             return doc.get("content") or doc.get("text") or doc.get("page_content") or ""
         return ""
-    
+
+    # ----------------- Retrieve -----------------
     def retrieve(self, question: str, stock: Optional[str] = None) -> List[Dict[str, Any]]:
         qv = self._embed_query(question)
 
-        # Optional: pre-filter by stock metadata before vector search
         q_filter = None
         if stock:
-            # Support both payload structures: {"stock": ...} and {"metadata": {"stock": ...}}
+            # 둘 중 어느 구조든 잡히도록 OR(should) 조건
             stock_conditions = [
                 FieldCondition(key="stock", match=MatchValue(value=stock)),
                 FieldCondition(key="metadata.stock", match=MatchValue(value=stock)),
             ]
             q_filter = Filter(should=stock_conditions)
 
-        hits = self.qc.search(
+        hits = self._tl_qc().search(
             collection_name=self.collection,
             query_vector=qv,
             limit=self.top_k if not self.use_rerank else self.rerank_top_k,
@@ -133,114 +166,235 @@ class NewsReportService:
             with_vectors=False,
             query_filter=q_filter,
         )
-    
-        # (선택) distance 모드 파악
-        dist_mode = getattr(self, "_dist_mode", None)
-        if dist_mode is None:
+
+        # distance 모드 캐시
+        if self._dist_mode is None:
             try:
-                info = self.qc.get_collection(self.collection)
+                info = self._tl_qc().get_collection(self.collection)
                 params = getattr(info.config, "params", None) or getattr(info, "config", None)
                 vectors = getattr(params, "vectors", None)
-                dist_mode = str(getattr(vectors, "distance", "")).lower() if vectors else ""
+                self._dist_mode = str(getattr(vectors, "distance", "")).lower() if vectors else ""
             except Exception:
-                dist_mode = ""
-            self._dist_mode = dist_mode
-    
+                self._dist_mode = ""
+
         docs: List[Dict[str, Any]] = []
         for h in hits:
             payload = h.payload or {}
             text = self._extract_text_from_payload(payload)
-    
-            # 메타데이터: payload["metadata"] 최우선, 없으면 payload에서 doc 제외
-            md = {}
+
+            # 메타데이터: payload["metadata"] 우선, 없으면 나머지 키에서 doc/metadata 제외
             if isinstance(payload.get("metadata"), dict):
                 md = dict(payload["metadata"])
             else:
                 md = {k: v for k, v in payload.items() if k not in ("doc", "metadata")}
-    
-            raw = getattr(h, "score", None)  # Qdrant는 보통 distance를 score로 반환
+
+            raw = getattr(h, "score", None)
             distance = float(raw) if raw is not None else None
-            similarity = None
-            if distance is not None and "cosine" in dist_mode:
-                similarity = distance
-    
+
             docs.append({
                 "id": str(getattr(h, "id", "")),
-                "content": text,            # ✅ 이제 doc 기반 본문
-                "metadata": md,             # ✅ metadata 그대로
-                "score": similarity if similarity is not None else (float(raw) if raw is not None else None),
+                "content": text,
+                "metadata": md,
+                "score": distance,      # Qdrant 반환 값 그대로
                 "distance": distance,
-                "distance_mode": dist_mode,
+                "distance_mode": self._dist_mode,
             })
         return docs
 
+    # ----------------- (선택) 리랭크 -----------------
     def rerank(self, question: str, docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        # 자리만들기: 필요시 Vertex Ranking이나 cross-encoder 붙이기
-        # 지금은 그대로 top_k 상위만 리턴
+        # TODO: Vertex Ranking / Cross-Encoder 붙일 수 있음. 지금은 top_k 자르기만.
         return (docs or [])[: self.top_k]
 
-    def generate(self, question: str, docs: List[Dict[str, Any]]) -> str:
+    # ----------------- Generate -----------------
+    def generate(self, question: str, docs: List[Dict[str, Any]], stock: Optional[str] = None) -> str:
         if not docs:
             return "관련된 정보를 찾을 수 없습니다."
-        ctx = "\n\n".join(d["content"] for d in docs)
+
+        # 컨텍스트 길이 관리(상위 5개 발췌)
+        def _trunc(s: str, limit=1600):
+            s = s or ""
+            return s if len(s) <= limit else s[:limit] + "..."
+
+        ctx = "\n\n---\n\n".join(_trunc(d["content"]) for d in docs[:5])
+
         prompt = f"""
-      당신은 주식시장과 연금에 정통한 전문 애널리스트입니다.  
-      아래 컨텍스트를 근거로 한국어 답변을 작성하세요.  
-      당신은 주식시장과 연금에 정통한 전문 애널리스트입니다.  
-      아래 컨텍스트를 근거로 한국어 답변을 작성하세요.  
-      
-        [작성 지침]  
-        1. 답변은 **3단락 이상**으로 구성하세요.  
-           - (1) 현황 요약  
-           - (2) 원인/맥락 분석  
-           - (3) 향후 전망 및 투자자 조언  
-        2. **중요 포인트는 굵게**, 핵심 수치는 `코드블록 스타일`로 표시하세요.  
-        3. 답변 중간에는 ▸, ✔, ✦ 같은 불릿 아이콘을 활용해 시각적으로 보기 좋게 정리하세요.  
-        4. 마지막에 `---` 구분선을 넣고, 근거 기사 한 줄 요약을 첨부하세요.  
-        5. 모호하거나 근거 없는 내용은 쓰지 말고 "관련된 정보를 찾을 수 없습니다."라고 답하세요.
+당신은 주식시장과 연금에 정통한 전문 애널리스트입니다.
+아래 컨텍스트를 바탕으로 {stock or "대상"} 종목의 가격 결정에 중요한 핵심정보를 요약하세요.
 
-        [답변예시]
-        📊 현황 요약
+[작성 지침]
+1) 답변은 3단락 이상
+ (1) 현황 요약
+ (2) 원인/맥락
+ (3) 향후 전망 및 투자자 조언
+2) 근거 없는 내용은 쓰지 말 것(모호하면 '관련된 정보를 찾을 수 없습니다.')
 
-        최근 엔비디아 주가가 30일 종가 기준 100일 이동평균선 아래로 하락하면서 기술적 지표상 부정적인 신호가 발생했습니다. 특히 변동성이 비트코인보다도 2배 이상 높아졌다는 점이 투자자 불안 심리를 키우고 있습니다.
+[대상 종목]
+{stock or "N/A"}
 
-        🔍 원인 및 배경
-        
-        ▸ 최근 2주간 빅테크 전반의 약세가 동반되며 엔비디아 주가에 부담이 되었고,
-        ▸ 금리 인하 시 수혜주에 대한 관심이 분산된 것도 추가적인 하락 압력으로 작용했습니다.
-        그러나 일부 전문가들은 이번 조정이 장기 성장성에는 큰 영향을 주지 않을 것이라 강조하고 있습니다.
+[컨텍스트 발췌]
+{ctx}
 
-        📈 향후 전망 & 투자자 조언
-
-        ✔ 단기적으로는 추가 하락 가능성을 염두에 두어야 하며, 보수적 투자자라면 관망이 유리합니다.
-        ✔ 반면, 장기적 관점에서는 매수 기회로 작용할 수 있다는 점에서 공격적 투자자에게는 긍정적일 수 있습니다.
-        ✦ 따라서 리스크 관리와 분할 매수 전략이 균형 잡힌 접근법이 될 것입니다.
-
-        📰 근거 기사: 엔비디아 주가가 30일 종가 기준 100일 이동평균선 아래로 떨어지며 기술적 부정 신호 발생
-        
-        [컨텍스트]
-        {ctx}
-        
-        [질문]
-        {question}
-        """
+[질문]
+{question}
+"""
         try:
-            resp = self.gen_model.generate_content(prompt, generation_config={"temperature": 0.2})
-            return (resp.text or "").strip()
+            resp = self.gen_model.generate_content(
+                prompt,
+                generation_config={"temperature": 0.2, "max_output_tokens": 768},
+            )
+            return (getattr(resp, "text", None) or "").strip()
         except Exception as e:
             return f"답변 생성 중 오류가 발생했습니다: {e}"
 
-    # ---------- public APIs ----------
+    # ----------------- Public: 단일 질문 -----------------
     def answer(self, question: str, stock: Optional[str] = None) -> Dict[str, Any]:
         docs = self.retrieve(question, stock=stock)
         docs = self.rerank(question, docs) if self.use_rerank else docs[: self.top_k]
-        ans = self.generate(question, docs)
+        ans = self.generate(question, docs, stock=stock)  # ← stock 전달
         return {"answer": ans, "source_documents": docs}
 
-    def retrieve_only(self, question: str, top_k: int | None = None, stock: Optional[str] = None) -> List[Dict[str, Any]]:
+    def retrieve_only(self, question: str, top_k: Optional[int] = None, stock: Optional[str] = None) -> List[Dict[str, Any]]:
         prev_top_k, self.top_k = self.top_k, (top_k or self.top_k)
         try:
             docs = self.retrieve(question, stock=stock)
             return docs[: (top_k or self.top_k)]
         finally:
             self.top_k = prev_top_k
+
+    # ======================================================
+    # ===============  다중 종목 Map → Reduce  =============
+    # ======================================================
+    def _stock_question(self, stock: str, template: Optional[str] = None) -> str:
+        template = template or "{stock} 관련해서 종목의 가격에 중요한 뉴스는?"
+        return template.format(stock=stock)
+
+    def answer_for_stock(self, stock: str, template: Optional[str] = None) -> Dict[str, Any]:
+        q = self._stock_question(stock, template)
+        res = self.answer(q, stock=stock)
+        return {
+            "stock": stock,
+            "question": q,
+            "answer": res["answer"],
+            "source_documents": res.get("source_documents", []),
+        }
+
+    def answer_multi_stocks(
+        self,
+        stocks: List[str],
+        template: Optional[str] = None,
+        max_workers: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """여러 종목 동시 처리(Map) — 입력 순서 보존"""
+        results: List[Optional[Dict[str, Any]]] = [None] * len(stocks)
+
+        def _one(i: int, s: str) -> tuple[int, Dict[str, Any]]:
+            return i, self.answer_for_stock(s, template=template)
+
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            futs = [ex.submit(_one, i, s) for i, s in enumerate(stocks)]
+            for fut in as_completed(futs):
+                i, r = fut.result()
+                results[i] = r
+
+        return [r for r in results if r is not None]
+
+    def _reduce_across_stocks(self, base_template: str, per_stock_results: List[Dict[str, Any]]) -> str:
+        # 간단 소스 요약(제목/URL) 모으기
+        def _fmt_sources(docs: List[Dict[str, Any]]) -> List[str]:
+            out = []
+            for d in docs[:3]:
+                md = d.get("metadata", {}) or {}
+                title = md.get("title") or md.get("headline") or md.get("doc_title") or ""
+                url = md.get("url") or md.get("link") or md.get("source_url") or ""
+                if title and url:
+                    out.append(f"{title} — {url}")
+                elif title:
+                    out.append(title)
+                elif url:
+                    out.append(url)
+            return out
+
+        lines = []
+        source_lines = []
+        for r in per_stock_results:
+            stock = r["stock"]
+            ans = (r.get("answer") or "").strip()
+            lines.append(f"### [{stock}] 부분답\n{ans}\n")
+            for s in _fmt_sources(r.get("source_documents", [])):
+                source_lines.append(f"[{stock}] {s}")
+
+        joined_parts = "\n\n".join(lines)
+        # 순서 보존 중복 제거
+        seen, dedup = set(), []
+        for s in source_lines:
+            if s not in seen:
+                seen.add(s)
+                dedup.append(s)
+        joined_sources = "\n".join(dedup[:12])
+
+        prompt = f"""
+당신은 증권사 리서치센터장입니다.
+아래 각 종목의 부분 답변을 취합하여, 공통 질의("{base_template}")에 대한 **종합 리포트**를 작성하세요.
+
+[요구사항]
+1) 종목별 핵심 뉴스와 가격 영향 경로를 비교 정리(긍/부정, 단기/중기)
+2) 공통 테마(금리, 환율, 공급망, 규제 등) 식별 및 교차영향 설명
+3) 종목별 리스크/촉발요인, 모니터링 지표 제시
+4) 결론: 포트폴리오 관점 제언(오버웨이트/뉴트럴/언더웨이트 등 사용 가능)
+5) 수치는 `백틱`으로, 핵심 포인트는 **굵게**, 불릿 적절 활용
+6) 모호하면 '관련된 정보를 찾을 수 없습니다.'라고 분명히 표기
+
+[종목별 부분답 모음]
+{joined_parts}
+
+[근거 기사/자료 후보]
+{joined_sources}
+"""
+        try:
+            resp = self.gen_model.generate_content(
+                prompt,
+                generation_config={"temperature": 0.25, "max_output_tokens": 1024},
+            )
+            return (getattr(resp, "text", None) or "").strip()
+        except Exception as e:
+            return f"최종 통합 생성 오류: {e}"
+
+    def answer_5_stocks_and_reduce(
+        self,
+        stocks: List[str],   # 5개 권장(3~8개도 동작)
+        template: Optional[str] = None,  # 기본: "{stock} 관련해서 종목의 가격에 중요한 뉴스는?"
+        max_workers: int = 5,
+    ) -> Dict[str, Any]:
+        template = template or "{stock} 관련해서 종목의 가격에 중요한 뉴스는?"
+        per_stock = self.answer_multi_stocks(stocks, template=template, max_workers=max_workers)
+        final = self._reduce_across_stocks(template, per_stock)
+        return {
+            "base_template": template,
+            "stocks": stocks,
+            "results": per_stock,   # [{stock, question, answer, source_documents}, ...]
+            "final_report": final,  # 종합 리포트
+        }
+
+
+# ------------------------------------------------------------
+# 간단 실행 예시 (환경변수 세팅 필요)
+#   - GOOGLE_CLOUD_PROJECT
+#   - (옵션) GOOGLE_CLOUD_LOCATION
+#   - QDRANT_URL, QDRANT_API_KEY
+#   - COLLECTION_NAME (기본: stock_news)
+#   - EMBED_MODEL_NAME, GENAI_MODEL_NAME, EMBED_DIM, DEFAULT_TOP_K, RERANK_TOP_K
+# ------------------------------------------------------------
+if __name__ == "__main__":
+    # 예: 5개 종목 동시 처리 후 통합
+    stocks = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN"]  # 원하는 티커/심볼 리스트로 교체
+    svc = NewsReportService(top_k=5, use_rerank=False)
+
+    result = svc.answer_5_stocks_and_reduce(stocks)
+    print("=== [FINAL REPORT] ===\n")
+    print((result.get("final_report") or "")[:4000])  # 길면 앞부분만 출력
+
+    # 종목별 부분답 미리보기
+    for r in result.get("results", []):
+        print(f"\n--- [{r.get('stock','')}] ---")
+        print((r.get("answer") or "")[:1200])
