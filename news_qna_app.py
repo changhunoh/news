@@ -111,6 +111,11 @@ st.markdown("""
     font-size: 15px;
 }
 
+/* 끊기면 안 되는 덩어리 전용 */
+.no-break {
+  white-space: nowrap;     /* 핵심! 한 줄로 유지 */
+}
+
 /* assistant색상 그라데이션 등 */
 
 .bubble.bot {
