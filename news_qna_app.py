@@ -205,42 +205,42 @@ messages_ph = st.empty()
 # 입력 폼
 # ------------------------
 # ---- 채팅폼 (제출 먼저 처리 → 같은 런에서 두 번 렌더) ----
-
+# 👉 Dock 입력 그리기 '위'에 둬주세요
+if "is_generating" not in st.session_state:
+    st.session_state.is_generating = False
+if "chat_input" not in st.session_state:
+    st.session_state.chat_input = ""
 # --- Dock 입력 영역 (그대로 사용) --- on_change=_submit_on_enter 제외            
 st.markdown('<div class="chat-dock"><div class="dock-wrap">', unsafe_allow_html=True)
 c1, c2 = st.columns([1, 0.14])
+
 user_q = c1.text_input(
     "질문을 입력하세요...",
-    key="chat_input",
+    key="chat_input",                      # ← 상태와 연결됨
     label_visibility="collapsed",
     placeholder="예) 삼성전자 전망 알려줘"
 )
-clicked = c2.button("➤", use_container_width=True, disabled=st.session_state.is_generating)
+
+clicked = c2.button(
+    "➤",
+    use_container_width=True,
+    disabled=st.session_state.get("is_generating", False)   # ← 안전 접근
+)
 st.markdown('</div></div>', unsafe_allow_html=True)
 
-# --- 전송 트리거 & 입력값은 'state' 기준으로 ---
-submitted = clicked or st.session_state.send_flag
+# 버튼만 전송 트리거
 final_q = (st.session_state.chat_input or "").strip()
-
-if submitted and final_q and not st.session_state.is_generating:
+if clicked and final_q and not st.session_state.is_generating:
     st.session_state.is_generating = True
-    st.session_state.send_flag = False      # ← 소비했으니 리셋
 
     now = fmt_ts(datetime.now(TZ))
-
     # 1) 유저 말풍선
     st.session_state["messages"].append({
-        "role": "user",
-        "content": final_q,
-        "ts": now
+        "role": "user", "content": final_q, "ts": now
     })
-
     # 2) assistant pending 말풍선
     st.session_state["messages"].append({
-        "role": "assistant",
-        "content": "",
-        "ts": now,
-        "pending": True
+        "role": "assistant", "content": "", "ts": now, "pending": True
     })
     pending_idx = len(st.session_state["messages"]) - 1
 
@@ -275,8 +275,8 @@ if submitted and final_q and not st.session_state.is_generating:
     }
     render_messages(st.session_state["messages"], messages_ph)
 
-    # 6) 입력창 초기화 및 상태 해제
-    st.session_state.chat_input = ""        # ← input 비우기
+    # 6) 입력창/상태 초기화
+    st.session_state.chat_input = ""
     st.session_state.is_generating = False
 # ------------------------
 # 마지막 안전 렌더
