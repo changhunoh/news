@@ -47,13 +47,13 @@ st.markdown("""
 .main {
     max-width: 900px;
     margin: 0 auto;
-    padding: 20px 24px;
+    padding: 24px;
 }
 
 /* 채팅 메시지 */
 .chat-row {
     display: flex;
-    margin: 16px 0;
+    margin: 20px 0;
     align-items: flex-start;
 }
 
@@ -100,16 +100,23 @@ st.markdown("""
 
 /* 말풍선 */
 .bubble {
-    max-width: 70%;
+    max-width: 85%;
     padding: 14px 18px;
     border-radius: 20px;
-    line-height: 1.6;
+    line-height: 2.0;
     white-space: pre-wrap;
     word-break: keep-all;
     overflow-wrap: break-word;
     position: relative;
     font-size: 15px;
 }
+
+/* 끊기면 안 되는 덩어리 전용 */
+.no-break {
+  white-space: nowrap;     /* 핵심! 한 줄로 유지 */
+}
+
+/* assistant색상 그라데이션 등 */
 
 .bubble.bot {
     background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
@@ -224,7 +231,7 @@ div[data-testid="stTextInput"] input:focus {
 /* 헤더 */
 h1 {
     text-align: center;
-    margin-bottom: 24px;
+    margin-bottom: 40px;
     color: #1e293b;
     font-size: 2.2rem;
     font-weight: 700;
