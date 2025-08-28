@@ -64,7 +64,7 @@ st.markdown("""
 
 .user-row {
     justify-content: flex-end;
-    gap: 4px;
+    gap: 1px;
 }
 
 /* 아바타 */
