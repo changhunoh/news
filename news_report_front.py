@@ -53,14 +53,7 @@ def _fmt_link(md: Dict[str, Any]) -> str:
 # Service 인스턴스 (캐시)
 # -----------------------------
 @st.cache_resource(show_spinner=False)
-def get_service() -> Optional[NewsReportService]:
-    try:
-        # 환경변수/Streamlit secrets는 NewsQnAService 내부에서 사용
-        return NewsReportService()
-    except Exception as e:
-        # 환경 세팅이 아직 안 되었을 수 있으니, None 반환
-        st.warning(f"서비스 초기화 실패: {e}")
-        return None
+get_service = NewsReportService()
 
 
 # -----------------------------
@@ -156,3 +149,4 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - score(raw): `{score}` • distance_mode: `{distance_mode}`")
             else:
                 st.write("소스 문서 없음")
+
