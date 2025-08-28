@@ -285,7 +285,6 @@ if "messages" not in st.session_state:
     }]
 
 for k, v in {
-    "chat_input": "",
     "is_generating": False,
     "to_process": False,
     "queued_q": "",
@@ -356,7 +355,7 @@ if not st.session_state.get("is_generating", False):
     with col1:
         user_q = st.text_input(
             "질문을 입력하세요...",
-            key="chat_input",
+            key="user_input",
             label_visibility="collapsed",
             placeholder="예) 삼성전자 전망 알려줘"
         )
@@ -376,7 +375,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 # ------------------------
 # 메시지 처리
 # ------------------------
-final_q = (st.session_state.get("chat_input", "") or "").strip()
+final_q = (st.session_state.get("user_input", "") or "").strip()
 
 if clicked and final_q and not st.session_state.get("is_generating", False):
     now = fmt_ts(datetime.now(TZ))
@@ -386,7 +385,6 @@ if clicked and final_q and not st.session_state.get("is_generating", False):
     })
     st.session_state["pending_idx"] = len(st.session_state["messages"]) - 1
     st.session_state["queued_q"] = final_q
-    st.session_state["chat_input"] = ""
     st.session_state["is_generating"] = True
     st.session_state["to_process"] = True
     st.rerun()
