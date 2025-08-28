@@ -365,7 +365,7 @@ class NewsReportService:
     {sources_joined}
     """
         try:
-            resp = self._thread_local.gen_model.generate_content(
+            resp = self._thread_local.rag_model.generate_content(
                 prompt, 
                 generation_config={"temperature": 0.25},
                 safety_settings={
@@ -402,6 +402,7 @@ class NewsReportService:
             return int(getattr(res, "count", 0))
         except Exception:
             return 0
+
 
 
 
