@@ -136,8 +136,16 @@ class NewsReportService:
     # ----------------- Payload 텍스트 추출 -----------------
     @staticmethod
     def _extract_text_from_payload(payload: dict) -> str:
+        """
+        현재 스키마 기준:
+          - 본문은 payload["text"] (string)
+          - 'metadata' 래퍼 없음
+        """
         if not isinstance(payload, dict):
             return ""
+        if isinstance(payload.get("text"), str):
+            return payload["text"]
+        # 혹시 과거 스키마도 들어올 수 있으니 백업 경로 유지
         doc = payload.get("doc")
         if isinstance(doc, str):
             return doc
@@ -145,6 +153,15 @@ class NewsReportService:
             return doc.get("content") or doc.get("text") or doc.get("page_content") or ""
         return ""
 
+    def _payload_matches_stock_root(self, payload: dict, stock: str) -> bool:
+        if not payload or not stock:
+            return False
+        v = payload.get("stock")
+        if isinstance(v, str):
+            return v.upper() == stock.upper()
+        if isinstance(v, list):
+            return stock.upper() in {str(x).upper() for x in v}
+        return False
     # ----------------- Retrieve -----------------
     def retrieve(self, question: str, stock: Optional[str] = None) -> List[Dict[str, Any]]:
         qv = self._embed_query(question)
@@ -152,19 +169,34 @@ class NewsReportService:
         q_filter = None
         if stock:
             # 둘 중 어느 구조든 잡히도록 OR(should) 조건
-            q_filter = Filter(
-                must = [
-                    FieldCondition(key="metadata.stock", match=MatchValue(value=stock))
-                ]
+            q_filter = Filter(must=[FieldCondition(key="stock", match=MatchValue(value=stock))])
+            
+        # 검색 (인덱스 없으면 폴백)
+        try:
+            hits = self._tl_qc().search(
+                collection_name=self.collection,
+                query_vector=qv,
+                limit=self.top_k if not self.use_rerank else self.rerank_top_k,
+                with_payload=True,
+                with_vectors=False,
+                query_filter=q_filter,
             )
-        hits = self._tl_qc().search(
-            collection_name=self.collection,
-            query_vector=qv,
-            limit=self.top_k if not self.use_rerank else self.rerank_top_k,
-            with_payload=True,
-            with_vectors=False,
-            query_filter=q_filter,
-        )
+        except Exception as e:
+            if stock and ("Index required" in str(e) or "Bad request" in str(e)):
+                # 서버 필터 제거 → 넓게 검색 후 클라이언트에서 거르기
+                raw_limit = (self.rerank_top_k if self.use_rerank else self.top_k) * 5
+                hits = self._tl_qc().search(
+                    collection_name=self.collection,
+                    query_vector=qv,
+                    limit=raw_limit,
+                    with_payload=True,
+                    with_vectors=False,
+                    query_filter=None,
+                )
+                hits = [h for h in hits if self._payload_matches_stock_root(h.payload, stock)]
+                hits = hits[: (self.rerank_top_k if self.use_rerank else self.top_k)]
+            else:
+                raise
 
         # distance 모드 캐시
         if self._dist_mode is None:
@@ -176,16 +208,13 @@ class NewsReportService:
             except Exception:
                 self._dist_mode = ""
 
+        # payload → docs 변환 (metadata 래퍼 없음에 맞춰 수정)
         docs: List[Dict[str, Any]] = []
         for h in hits:
             payload = h.payload or {}
             text = self._extract_text_from_payload(payload)
-
-            # 메타데이터: payload["metadata"] 우선, 없으면 나머지 키에서 doc/metadata 제외
-            if isinstance(payload.get("metadata"), dict):
-                md = dict(payload["metadata"])
-            else:
-                md = {k: v for k, v in payload.items() if k not in ("doc", "metadata")}
+            # 루트에 있는 모든 키 중 text만 제외해서 metadata로 전달
+            md = {k: v for k, v in payload.items() if k != "text"}
 
             raw = getattr(h, "score", None)
             distance = float(raw) if raw is not None else None
@@ -193,8 +222,8 @@ class NewsReportService:
             docs.append({
                 "id": str(getattr(h, "id", "")),
                 "content": text,
-                "metadata": md,
-                "score": distance,      # Qdrant 반환 값 그대로
+                "metadata": md,               # ex) doc_id, chunk_idx, stock, original ...
+                "score": distance,
                 "distance": distance,
                 "distance_mode": self._dist_mode,
             })
@@ -397,4 +426,5 @@ if __name__ == "__main__":
     for r in result.get("results", []):
         print(f"\n--- [{r.get('stock','')}] ---")
         print((r.get("answer") or "")[:1200])
+
 
