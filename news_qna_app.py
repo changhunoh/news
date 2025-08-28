@@ -252,6 +252,12 @@ h1 {
         max-width: 85%;
     }
 }
+.stApp {
+    background: linear-gradient(180deg, #e0f7ff 0%, #ffffff 100%);
+}
+.main {
+    background: transparent !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
