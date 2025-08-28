@@ -8,7 +8,7 @@ import streamlit as st
 # ------------------------
 # 기본 설정
 # ------------------------
-st.set_page_config(page_title="우리 연금술사", page_icon="🧙‍♂️", layout="wide")
+st.set_page_config(page_title="우리 연금술사", page_icon="🧙‍♂️", layout="centered")
 TZ = ZoneInfo(os.getenv("APP_TZ", "Asia/Seoul"))
 
 def fmt_ts(dt: datetime) -> str:
@@ -23,7 +23,7 @@ def _linkify(s: str) -> str:
 # ------------------------
 # 아바타 설정
 # ------------------------
-ASSISTANT_AVATAR_URL = os.getenv("ASSISTANT_AVATAR_URL", "")  # 예: https://.../wizard.png
+ASSISTANT_AVATAR_URL = os.getenv("ASSISTANT_AVATAR_URL", "")
 USER_AVATAR_URL      = os.getenv("USER_AVATAR_URL", "")
 ASSISTANT_EMOJI      = "🧙‍♂️"
 USER_EMOJI           = "🤴"
@@ -39,125 +39,123 @@ def _avatar_html(role: str) -> str:
         return f"<div class='avatar emoji'>{USER_EMOJI}</div>"
 
 # ------------------------
-# CSS (말풍선+아바타+타이핑 버블)
+# CSS 스타일
 # ------------------------
 st.markdown("""
 <style>
-/* 전체 컨테이너 */
-.main-container {
+/* 전체 레이아웃 */
+.main {
     max-width: 800px;
     margin: 0 auto;
     padding: 20px;
-    min-height: 100vh;
+}
+
+/* 채팅 메시지 */
+.chat-row {
     display: flex;
-    flex-direction: column;
+    gap: 12px;
+    margin: 16px 0;
+    align-items: flex-start;
 }
 
-/* 채팅 영역 */
-.chat-container {
-    flex: 1;
-    overflow-y: auto;
-    margin-bottom: 100px; /* 입력창 공간 확보 */
-    padding: 20px 0;
+.bot-row {
+    justify-content: flex-start;
 }
 
-.chat-row{ 
-    display: flex; 
-    gap: 12px; 
-    margin: 16px 0; 
-    align-items: flex-start; 
-    max-width: 100%;
-}
-.bot-row { 
-    justify-content: flex-start; 
-}
-.user-row{ 
-    justify-content: flex-end;  
+.user-row {
+    justify-content: flex-end;
 }
 
 /* 아바타 */
-.avatar{ 
-    width: 40px; 
-    height: 40px; 
-    border-radius: 50%; 
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
     overflow: hidden;
-    border: 1px solid #e5e7eb; 
-    background: #fff; 
-    flex: 0 0 40px; 
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    flex: 0 0 40px;
 }
-.avatar img{ 
-    width: 100%; 
-    height: 100%; 
-    object-fit: cover; 
-    display: block; 
+
+.avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
-.avatar.emoji{ 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    font-size: 22px; 
+
+.avatar.emoji {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
 }
 
 /* 말풍선 */
-.bubble{ 
+.bubble {
     max-width: 70%;
-    padding: 12px 16px; 
-    border-radius: 18px; 
+    padding: 12px 16px;
+    border-radius: 18px;
     line-height: 1.6;
-    white-space: pre-wrap; 
-    word-break: keep-all; 
-    overflow-wrap: break-word; 
+    white-space: pre-wrap;
+    word-break: keep-all;
+    overflow-wrap: break-word;
 }
-.bubble.bot  { 
-    background: #f6f8fb; 
+
+.bubble.bot {
+    background: #f6f8fb;
     color: #111;
     border: 1px solid #eef2f7;
     box-shadow: 0 2px 8px rgba(15,23,42,.08);
 }
-.bubble.user { 
-    background: #0b62e6; 
-    color: #fff; 
+
+.bubble.user {
+    background: #0b62e6;
+    color: #fff;
     border: 0;
-    box-shadow: 0 4px 12px rgba(11,98,230,.2); 
+    box-shadow: 0 4px 12px rgba(11,98,230,.2);
 }
 
 /* 타임스탬프 */
-.time{ 
-    font-size: 11px; 
-    color: #6b7280; 
-    margin-top: 4px; 
+.time {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 4px;
 }
 
 /* 타이핑 버블 */
-.typing-bubble{
-  position: relative;
-  display: inline-flex; 
-  gap: 6px; 
-  align-items: center;
-  background: #f6f8fb; 
-  color: #111;
-  border: 1px solid #eef2f7; 
-  border-radius: 18px; 
-  padding: 12px 16px;
-  box-shadow: 0 2px 8px rgba(15,23,42,.08);
-}
-.typing-dot{
-  width: 8px; 
-  height: 8px; 
-  border-radius: 50%; 
-  background: #a8b3c8; 
-  display: inline-block;
-  animation: typingDot 1.2s infinite ease-in-out;
-}
-.typing-dot:nth-child(2){ animation-delay: .15s; }
-.typing-dot:nth-child(3){ animation-delay: .3s; }
-@keyframes typingDot{ 
-    0%,80%,100%{transform: translateY(0); opacity: .5} 
-    40%{transform: translateY(-4px); opacity: 1} 
+.typing-bubble {
+    position: relative;
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    background: #f6f8fb;
+    color: #111;
+    border: 1px solid #eef2f7;
+    border-radius: 18px;
+    padding: 12px 16px;
+    box-shadow: 0 2px 8px rgba(15,23,42,.08);
 }
 
-/* 채팅 입력창 */
-.chat-input-container {
+.typing-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #a8b3c8;
+    display: inline-block;
+    animation: typingDot 1.2s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(2) { animation-delay: .15s; }
+.typing-dot:nth-child(3) { animation-delay: .3s; }
+
+@keyframes typingDot {
+    0%,80%,100% { transform: translateY(0); opacity: .5 }
+    40% { transform: translateY(-4px); opacity: 1 }
+}
+
+/* 입력창 */
+.input-container {
     position: fixed;
     bottom: 20px;
     left: 50%;
@@ -183,40 +181,7 @@ st.markdown("""
     border: 1px solid #e5e7eb;
 }
 
-#chat_input {
-    border: 0 !important;
-    flex: 1;
-    padding: 12px 16px !important;
-    font-size: 15px !important;
-    background: transparent !important;
-    border-radius: 16px !important;
-}
-#chat_input:focus { 
-    outline: none !important; 
-    box-shadow: none !important;
-}
-
-.send-button {
-    border-radius: 50% !important;
-    background: #0b62e6 !important; 
-    color: #fff !important;
-    font-size: 18px !important; 
-    font-weight: 700;
-    width: 44px; 
-    height: 44px;
-    display: flex; 
-    align-items: center; 
-    justify-content: center;
-    border: none !important;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-.send-button:hover {
-    background: #094fc0 !important;
-    transform: scale(1.05);
-}
-
-/* text_input 기본 wrapper 제거 */
+/* 스트림릿 기본 스타일 제거 */
 div[data-testid="stTextInput"] {
     background: transparent !important;
     border: none !important;
@@ -224,23 +189,57 @@ div[data-testid="stTextInput"] {
     padding: 0 !important;
 }
 
-/* 스트림릿 기본 스타일 제거 */
-.stButton > button {
+div[data-testid="stTextInput"] input {
+    border: 0 !important;
+    flex: 1;
+    padding: 12px 16px !important;
+    font-size: 15px !important;
     background: transparent !important;
-    border: none !important;
+    border-radius: 16px !important;
+}
+
+div[data-testid="stTextInput"] input:focus {
+    outline: none !important;
     box-shadow: none !important;
 }
 
-/* 헤더 스타일 */
+/* 버튼 스타일 */
+.stButton > button {
+    border-radius: 50% !important;
+    background: #0b62e6 !important;
+    color: #fff !important;
+    font-size: 18px !important;
+    font-weight: 700;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.stButton > button:hover {
+    background: #094fc0 !important;
+    transform: scale(1.05);
+}
+
+/* 헤더 */
 h1 {
     text-align: center;
     margin-bottom: 30px;
     color: #1f2937;
 }
 
-/* 반응형 디자인 */
+/* 채팅 영역 여백 */
+.chat-area {
+    margin-bottom: 120px;
+}
+
+/* 반응형 */
 @media (max-width: 768px) {
-    .chat-input-container {
+    .input-container {
         width: 95%;
         bottom: 10px;
     }
@@ -288,8 +287,8 @@ if "messages" not in st.session_state:
 for k, v in {
     "chat_input": "",
     "is_generating": False,
-    "to_process": False,     # 전송 직후 처리 플래그
-    "queued_q": "",          # 전송된 질문 보관
+    "to_process": False,
+    "queued_q": "",
     "pending_idx": None,
 }.items():
     if k not in st.session_state:
@@ -337,27 +336,20 @@ def render_messages(msgs, placeholder):
 # ------------------------
 # 메인 UI
 # ------------------------
-st.markdown('<div class="main-container">', unsafe_allow_html=True)
+st.markdown('<div class="main">', unsafe_allow_html=True)
 
 # 헤더
 st.title("🧙‍♂️ 우리 연금술사")
 
 # 채팅 영역
-st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+st.markdown('<div class="chat-area">', unsafe_allow_html=True)
 messages_ph = st.empty()
-
-# 기존 메시지 표시
 render_messages(st.session_state["messages"], messages_ph)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ------------------------
-# 입력 폼
-# ------------------------
+# 입력창
 if not st.session_state.get("is_generating", False):
-    st.markdown('''
-        <div class="chat-input-container">
-            <div class="input-wrapper">
-    ''', unsafe_allow_html=True)
+    st.markdown('<div class="input-container"><div class="input-wrapper">', unsafe_allow_html=True)
     
     col1, col2 = st.columns([1, 0.15])
     
@@ -382,7 +374,7 @@ if not st.session_state.get("is_generating", False):
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ------------------------
-# 메시지 처리 로직
+# 메시지 처리
 # ------------------------
 final_q = (st.session_state.get("chat_input", "") or "").strip()
 
