@@ -43,7 +43,14 @@ def _avatar_html(role: str) -> str:
 # ------------------------
 st.markdown("""
 <script>
-function copyToClipboard(text, buttonElement) {
+function copyToClipboard(buttonElement) {
+    // 버튼의 data-text 속성에서 텍스트 가져오기
+    const text = buttonElement.getAttribute('data-text');
+    if (!text) {
+        console.error('복사할 텍스트가 없습니다.');
+        return;
+    }
+    
     // 텍스트를 안전하게 복사
     if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(text).then(function() {
@@ -73,6 +80,7 @@ function fallbackCopyTextToClipboard(text, buttonElement) {
     textArea.style.top = "0";
     textArea.style.left = "0";
     textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
@@ -369,13 +377,13 @@ def render_messages(msgs, placeholder):
             else:
                 text=_linkify(_escape_html(m.get("content","")))
                 content_text = m.get("content","")
-                # JavaScript에서 사용할 수 있도록 텍스트 이스케이프
-                escaped_content = content_text.replace('\\', '\\\\').replace('`', '\\`').replace("'", "\\'").replace('"', '\\"')
+                # HTML 속성에서 사용할 수 있도록 텍스트 이스케이프
+                escaped_content = content_text.replace('&', '&amp;').replace('"', '&quot;').replace("'", '&#39;').replace('<', '&lt;').replace('>', '&gt;')
                 html_parts.append(
                     "<div class='chat-row bot-row'>"
                     f"{_avatar_html('assistant')}"
                     f"<div><div class='bubble bot'>{text}</div>"
-                    f"<button class='copy-btn' onclick='copyToClipboard(\"{escaped_content}\", this)'>📋 복사</button>"
+                    f"<button class='copy-btn' data-text='{escaped_content}' onclick='copyToClipboard(this)'>📋 복사</button>"
                     f"<div class='time'>{ts}</div></div></div>"
                 )
         else: # user
