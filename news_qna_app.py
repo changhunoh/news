@@ -154,32 +154,7 @@ st.markdown("""
     40% { transform: translateY(-4px); opacity: 1 }
 }
 
-/* 입력창 */
-.input-container {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 90%;
-    max-width: 760px;
-    z-index: 1000;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 25px;
-    padding: 8px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 8px 32px rgba(0,0,0,.12);
-}
 
-.input-wrapper {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    background: #fff;
-    border-radius: 20px;
-    padding: 4px;
-    border: 1px solid #e5e7eb;
-}
 
 /* 스트림릿 기본 스타일 제거 */
 div[data-testid="stTextInput"] {
@@ -234,15 +209,11 @@ h1 {
 
 /* 채팅 영역 여백 */
 .chat-area {
-    margin-bottom: 120px;
+    margin-bottom: 20px;
 }
 
 /* 반응형 */
 @media (max-width: 768px) {
-    .input-container {
-        width: 95%;
-        bottom: 10px;
-    }
     .bubble {
         max-width: 85%;
     }
@@ -348,8 +319,6 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # 입력창
 if not st.session_state.get("is_generating", False):
-    st.markdown('<div class="input-container"><div class="input-wrapper">', unsafe_allow_html=True)
-    
     col1, col2 = st.columns([1, 0.15])
     
     with col1:
@@ -367,8 +336,6 @@ if not st.session_state.get("is_generating", False):
             use_container_width=True,
             disabled=st.session_state.get("is_generating", False)
         )
-    
-    st.markdown('</div></div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
