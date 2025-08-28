@@ -53,29 +53,29 @@ st.markdown("""
 /* 채팅 메시지 */
 .chat-row {
     display: flex;
-    gap: 8px;
     margin: 16px 0;
     align-items: flex-start;
 }
 
 .bot-row {
     justify-content: flex-start;
+    gap: 8px;
 }
 
 .user-row {
     justify-content: flex-end;
-    gap: 6px;
+    gap: 4px;
 }
 
 /* 아바타 */
 .avatar {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     overflow: hidden;
     border: 1px solid #e5e7eb;
     background: #fff;
-    flex: 0 0 40px;
+    flex: 0 0 36px;
     box-shadow: 
         0 2px 4px rgba(0, 0, 0, 0.1),
         0 4px 8px rgba(0, 0, 0, 0.06);
@@ -97,9 +97,9 @@ st.markdown("""
 
 /* 말풍선 */
 .bubble {
-    max-width: 70%;
-    padding: 12px 16px;
-    border-radius: 18px;
+    max-width: 75%;
+    padding: 10px 14px;
+    border-radius: 16px;
     line-height: 1.6;
     white-space: pre-wrap;
     word-break: keep-all;
