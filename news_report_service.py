@@ -17,7 +17,9 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Filter, FieldCondition, MatchValue, PayloadSchemaType
 )
+from dotenv import load_dotenv
 
+load_dotenv()
 # Streamlit이 없을 수도 있으니 안전 import
 try:
     import streamlit as st
@@ -52,7 +54,7 @@ class NewsReportService:
         collection: str = "stock_news",
         embed_model_name: str = "gemini-embedding-001",
         gen_model_name: str = "gemini-2.5-pro", #최종 리포트 모델
-        rag_model_name: str = "gemini-1.5-pro", # RAG 모델
+        rag_model_name: str = "gemini-2.5-flash-lite", # RAG 모델
         embed_dim: int = 3072,
         top_k: int = 1,
         rerank_top_k: int = 1,
@@ -362,10 +364,13 @@ class NewsReportService:
                 results[i] = r
         return [r for r in results if r is not None]
 
-    def _reduce_across_stocks(self, base_template: str, per_stock_results: List[Dict[str, Any]]) -> str:
+    def _reduce_across_stocks(self, template , per_stock_results: List[Dict[str, Any]]) -> str:
+        if not per_stock_results:
+            return "종목별 결과가 비어있습니다."
+        
         def _fmt_sources(docs: List[Dict[str, Any]]) -> List[str]:
             out = []
-            for d in docs[:3]:
+            for d in (docs or [])[:3]:
                 md = d.get("metadata", {}) or {}
                 title = md.get("title") or md.get("headline") or md.get("doc_title") or md.get("doc_id") or ""
                 url = md.get("url") or md.get("link") or md.get("source_url") or ""
@@ -374,14 +379,15 @@ class NewsReportService:
                 elif url:         out.append(url)
             return out
     
-    def _hard_trunc(s: str, limit=800):
-        s = s or ""
-        return s if len(s) <= limit else s[:limit] + "..."
+        def _hard_trunc(s: str, limit=1200):
+            s = (s or "").strip()
+            return s if len(s) <= limit else s[:limit] + "..."
     
         lines, source_lines = [], []
         for r in per_stock_results:
-            stock = r["stock"]
-            ans = (r.get("answer") or "").strip()
+            stock = r.get("stock","")
+            ans = r.get("answer") or ""
+            ans = _hard_trunc(ans,1400) if ans else "관련된 정보를 찾을 수 없습니다."
             lines.append(f"### [{stock}] 부분답\n{ans}\n")
             for s in _fmt_sources(r.get("source_documents", [])):
                 source_lines.append(f"[{stock}] {s}")
@@ -395,10 +401,12 @@ class NewsReportService:
         # ✅ f-string 안에 백슬래시가 들어가던 join을 미리 계산
         parts_joined   = "\n\n".join(lines[:5])
         sources_joined = "\n".join(dedup[:12])
+        print(parts_joined)
+        print(sources_joined)
     
         prompt = f"""
     당신은 증권사 리서치센터장입니다.
-    아래 각 종목의 부분 답변을 취합하여, 공통 질의({base_template})에 대한 **종합 리포트**를 작성하세요.
+    아래 각 종목의 부분 답변을 취합하여 **종합 리포트**를 작성하세요.
     
     [요구사항]
     1) 종목별 핵심 뉴스와 가격 영향 경로를 비교 정리(긍/부정, 단기/중기)
@@ -411,16 +419,15 @@ class NewsReportService:
     [종목별 부분답 모음]
     {parts_joined}
     
-    [근거 기사/자료 후보]
-    {sources_joined}
     """
+        print(f'gen_ai {prompt}')
         try:
-            resp = self._thread_local.rag_model.generate_content(
+            resp = self._thread_local.gen_model.generate_content(
                 prompt, 
                 generation_config=self._gen_config(temperature=0.25),
                 safety_settings=self._safe_settings())
             text = self._extract_text(resp)
-            return text or "최종 통합 생성에 실패했습니다. 안전필터 또는 토큰 한도에 의해 응답이 비었습니다."
+            return text if text else "최종 통합 생성에 실패했습니다. 안전필터 또는 토큰 한도에 의해 응답이 비었습니다."
         except Exception as e:
             return f"최종 통합 생성 오류: {e}"
 
@@ -449,10 +456,33 @@ class NewsReportService:
             return 0
 
 
+if __name__ == "__main__":
+    # ✅ 환경변수 필요: GOOGLE_CLOUD_PROJECT, QDRANT_URL, QDRANT_API_KEY
+    # 또는 Streamlit secrets (gcp_service_account)로 초기화 가능
 
+    try:
+        service = NewsReportService()
+    except Exception as e:
+        print(f"[Init Error] 서비스 초기화 실패: {e}")
+        exit(1)
 
+    # 테스트용 종목 (원하는 티커/심볼로 교체 가능)
+    test_stocks = ["삼성전자", "현대차", "카카오", "네이버", "LG에너지솔루션"]
 
+    # 기본 질의 템플릿
+    template = "{stock} 관련해서 종목의 가격에 중요한 뉴스는?"
 
+    print(">>> 5개 종목 병렬 질의 & 최종 리포트 생성 테스트")
+    result = service.answer_5_stocks_and_reduce(test_stocks, template=template, max_workers=5)
 
+    # 종목별 결과 출력
+    for r in result["results"]:
+        print("=" * 80)
+        print(f"[{r['stock']}] 질문: {r['question']}")
+        print(f"부분답:\n{r['answer'][:500]}...\n")  # 앞부분만 표시
+
+    print("=" * 80)
+    print(">>> 최종 통합 리포트:")
+    print(result["final_report"])
 
 
