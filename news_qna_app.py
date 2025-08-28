@@ -101,7 +101,8 @@ st.markdown("""
 
 /* 말풍선 */
 .bubble {
-    max-width: 70%;
+    max-width: none;
+    width: auto;
     padding: 16px 20px;
     border-radius: 20px;
     line-height: 2.0;
