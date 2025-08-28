@@ -210,32 +210,7 @@ h1 {
     margin-bottom: 20px;
 }
 
-/* 복사 버튼 */
-.copy-btn {
-    background: #f3f4f6;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 11px;
-    color: #6b7280;
-    cursor: pointer;
-    margin-top: 8px;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
 
-.copy-btn:hover {
-    background: #e5e7eb;
-    color: #374151;
-}
-
-.copy-btn.copied {
-    background: #10b981;
-    color: white;
-    border-color: #10b981;
-}
 
 /* 반응형 */
 @media (max-width: 768px) {
@@ -312,14 +287,10 @@ def render_messages(msgs, placeholder):
                 )
             else:
                 text=_linkify(_escape_html(m.get("content","")))
-                content_text = m.get("content","")
-                # HTML 속성에서 사용할 수 있도록 텍스트 이스케이프
-                escaped_content = content_text.replace('&', '&amp;').replace('"', '&quot;').replace("'", '&#39;').replace('<', '&lt;').replace('>', '&gt;')
                 html_parts.append(
                     "<div class='chat-row bot-row'>"
                     f"{_avatar_html('assistant')}"
                     f"<div><div class='bubble bot'>{text}</div>"
-                    f"<button class='copy-btn' data-text='{escaped_content}' onclick='copyToClipboard(this)'>📋 복사</button>"
                     f"<div class='time'>{ts}</div></div></div>"
                 )
         else: # user
@@ -333,68 +304,7 @@ def render_messages(msgs, placeholder):
             )
     placeholder.markdown("\n".join(html_parts), unsafe_allow_html=True)
 
-# ------------------------
-# JavaScript 복사 기능
-# ------------------------
-st.markdown("""
-<script>
-function copyToClipboard(buttonElement) {
-    const text = buttonElement.getAttribute('data-text');
-    if (!text) {
-        console.error('복사할 텍스트가 없습니다.');
-        return;
-    }
-    
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(function() {
-            const originalText = buttonElement.innerHTML;
-            buttonElement.innerHTML = '✓ 복사됨';
-            buttonElement.classList.add('copied');
-            
-            setTimeout(function() {
-                buttonElement.innerHTML = originalText;
-                buttonElement.classList.remove('copied');
-            }, 2000);
-        }).catch(function(err) {
-            console.error('복사 실패:', err);
-            fallbackCopyTextToClipboard(text, buttonElement);
-        });
-    } else {
-        fallbackCopyTextToClipboard(text, buttonElement);
-    }
-}
 
-function fallbackCopyTextToClipboard(text, buttonElement) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.top = "0";
-    textArea.style.left = "0";
-    textArea.style.position = "fixed";
-    textArea.style.opacity = "0";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    
-    try {
-        const successful = document.execCommand('copy');
-        if (successful) {
-            const originalText = buttonElement.innerHTML;
-            buttonElement.innerHTML = '✓ 복사됨';
-            buttonElement.classList.add('copied');
-            
-            setTimeout(function() {
-                buttonElement.innerHTML = originalText;
-                buttonElement.classList.remove('copied');
-            }, 2000);
-        }
-    } catch (err) {
-        console.error('폴백 복사 실패:', err);
-    }
-    
-    document.body.removeChild(textArea);
-}
-</script>
-""", unsafe_allow_html=True)
 
 # ------------------------
 # 메인 UI
