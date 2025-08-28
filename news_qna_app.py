@@ -48,9 +48,6 @@ st.markdown("""
     max-width: 900px;
     margin: 0 auto;
     padding: 24px;
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }
 
 /* 채팅 메시지 */
@@ -66,10 +63,10 @@ st.markdown("""
 }
 
 .user-row {
-    justify-content: flex-end;
+    flex-direction: row-reverse; /* 아바타가 오른쪽으로 */
+    justify-content: flex-start; /* 또는 제거해도 OK (기본값) */
     gap: 8px;
 }
-
 /* 아바타 */
 .avatar {
     width: 42px;
@@ -95,9 +92,10 @@ st.markdown("""
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    font-size: 22px;
+    background: #f8fafc;
+    color: #64748b;
+    border: 2px solid #e2e8f0;
 }
 
 /* 말풍선 */
@@ -228,12 +226,8 @@ h1 {
     text-align: center;
     margin-bottom: 40px;
     color: #1e293b;
-    font-size: 2.5rem;
+    font-size: 2.2rem;
     font-weight: 700;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
 }
 
 /* 채팅 영역 여백 */
