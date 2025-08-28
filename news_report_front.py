@@ -188,8 +188,11 @@ if run_btn:
         st.stop()
 
     svc =  NewsReportService()
+    """
+    벡터디비 페이로드 확인시에만 활성화
     if svc is not None:
         sidebar_qdrant_raw_payload_browser(svc)
+    """
     if svc is None:
         st.error("서비스를 초기화할 수 없습니다. 좌측의 Secrets 설정을 확인해 주세요.")
         st.stop()
@@ -244,6 +247,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - score(raw): `{score}` • distance_mode: `{distance_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
