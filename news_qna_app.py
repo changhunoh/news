@@ -284,8 +284,8 @@ svc = get_service()
 if "messages" not in st.session_state:
     st.session_state["messages"] = [{
         "role": "assistant",
-        "content": """안녕하세요! 연금 술사입니다. 
-        퇴직연금 운용 상품에 대해 궁금한 점을 모두 물어봐주세요.
+        "content": """안녕하세요! 연금술사입니다. 
+퇴직연금 운용 상품에 대해 궁금한 점을 모두 물어봐주세요.
 
 💡 예시 질문:
 • 삼성전자 주가 전망이 어떻게 되나요?
