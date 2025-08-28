@@ -51,115 +51,112 @@ def _fmt_link(md: Dict[str, Any]) -> str:
 # -----------------------------
 # Service 인스턴스 (캐시)
 # -----------------------------
-def sidebar_qdrant_metadata_tools(svc):
+def sidebar_qdrant_payload_browser(svc):
     """
-    Qdrant 메타데이터를 간단히 훑어보는 사이드바 도구.
-    - 샘플 payload 확인
-    - stock 필터 스크롤
-    - payload 인덱스/스키마 확인
-    - stock 분포 집계
+    Qdrant 컬렉션을 '무필터 scroll'로 훑어서 payload(메타데이터)만 빠르게 확인하는 사이드바 도구.
+    - 인덱스 불필요 (서버 필터 안 씀)
+    - 페이지네이션(offset) 지원
+    - 클라이언트 측 간단 필터(부분 문자열)
     """
-    st.sidebar.subheader("🧭 Qdrant 메타데이터 탐색")
+    st.sidebar.subheader("📦 Qdrant 메타데이터 브라우저")
 
-    # 기본 옵션
     col_name = getattr(svc, "collection", "stock_news")
     st.sidebar.caption(f"Collection: `{col_name}`")
 
-    stock_filter = st.sidebar.text_input("stock 필터(옵션, metadata.stock)", value="")
-    limit = st.sidebar.number_input("가져올 샘플 개수", 5, 500, 20, step=5)
-    show_raw = st.sidebar.toggle("Raw payload 보이기", value=False)
+    # 페이지 크기 & 로컬 필터(부분 문자열)
+    page_size = st.sidebar.number_input("페이지 크기", min_value=5, max_value=200, value=20, step=5)
+    local_filter = st.sidebar.text_input("클라이언트 필터(부분 문자열, 옵션)", value="")
+    show_raw = st.sidebar.toggle("Raw payload 보기(상위 3건)", value=False)
 
-    # =============== 인덱스/스키마 보기 ===============
-    if st.sidebar.button("📑 인덱스/스키마 보기"):
-        try:
-            info = svc.qc.get_collection(col_name)
-            # payload_schema가 있으면 보여주고, 없으면 전체 info를 json으로 노출
-            payload_schema = getattr(info, "payload_schema", None)
-            st.sidebar.markdown("**Payload schema**")
-            if payload_schema:
-                st.sidebar.json(payload_schema)
-            else:
-                st.sidebar.json(info.dict() if hasattr(info, "dict") else str(info))
-        except Exception as e:
-            st.sidebar.error(f"스키마 조회 실패: {e}")
+    # session_state로 offset/state 관리
+    if "qdr_points" not in st.session_state:
+        st.session_state["qdr_points"] = []
+    if "qdr_offset" not in st.session_state:
+        st.session_state["qdr_offset"] = None
 
-    # =============== 샘플 payload 조회 ===============
-    if st.sidebar.button("🔍 샘플 payload 보기"):
-        try:
-            q_filter = None
-            if stock_filter.strip():
-                q_filter = Filter(
-                    must=[FieldCondition(key="metadata.stock", match=MatchValue(value=stock_filter.strip()))]
-                )
+    def _scroll_page(limit_val: int, offset_val=None):
+        """
+        qdrant_client 버전 차이 거의 없음. scroll은 필터 없이 호출.
+        반환: (points, next_offset)
+        """
+        # 최신/구버전 모두 offset 인자를 지원
+        return svc.qc.scroll(
+            collection_name=col_name,
+            limit=int(limit_val),
+            with_payload=True,
+            with_vectors=False,
+            offset=offset_val,
+        )
 
-            # scroll로 샘플 가져오기
-            points, _ = svc.qc.scroll(
-                collection_name=col_name,
-                limit=int(limit),
-                with_payload=True,
-                with_vectors=False,
-                scroll_filter=q_filter,   # qdrant_client>=1.6: scroll_filter, 구버전은 filter
-            )
+    # 버튼들
+    c1, c2, c3 = st.sidebar.columns(3)
+    if c1.button("🔄 새로고침"):
+        # 현재 offset 유지하고 페이지 다시 불러오기
+        pts, next_off = _scroll_page(page_size, st.session_state["qdr_offset"])
+        st.session_state["qdr_points"] = pts
+        st.session_state["qdr_next"] = next_off  # 다음 페이지 미리 보관(옵션)
 
-            def _row(p):
-                payload = p.payload or {}
-                md = payload.get("metadata") or {}
-                # 흔히 보는 필드만 안전하게 노출 (없으면 빈 문자열)
-                return {
-                    "id": str(getattr(p, "id", "")),
-                    "metadata.stock": (md.get("stock") if isinstance(md, dict) else ""),
-                    "metadata.title": (md.get("title") if isinstance(md, dict) else ""),
-                    "metadata.url": (md.get("url") if isinstance(md, dict) else ""),
-                }
+    if c2.button("⏭ 다음 페이지"):
+        pts, next_off = _scroll_page(page_size, st.session_state.get("qdr_next"))
+        st.session_state["qdr_points"] = pts
+        st.session_state["qdr_offset"] = st.session_state.get("qdr_next")
+        st.session_state["qdr_next"] = next_off
 
-            rows = [_row(p) for p in points]
-            st.sidebar.markdown(f"**샘플 {len(rows)}건**")
-            if rows:
-                st.sidebar.dataframe(rows, use_container_width=True)
-            else:
-                st.sidebar.info("결과가 없습니다.")
+    if c3.button("🔁 처음부터"):
+        st.session_state["qdr_offset"] = None
+        pts, next_off = _scroll_page(page_size, None)
+        st.session_state["qdr_points"] = pts
+        st.session_state["qdr_next"] = next_off
 
-            if show_raw:
-                st.sidebar.markdown("**Raw payload (최대 3건)**")
-                for p in points[:3]:
-                    st.sidebar.json(p.payload or {})
-        except Exception as e:
-            # 인덱스 없는 필터 에러 등 → 안내
-            st.sidebar.error(f"샘플 조회 실패: {e}\n\n필요시 `metadata.stock`에 keyword 인덱스를 생성하세요.")
+    # 처음 진입 시 첫 페이지 자동 로드(선택)
+    if not st.session_state["qdr_points"]:
+        pts, next_off = _scroll_page(page_size, None)
+        st.session_state["qdr_points"] = pts
+        st.session_state["qdr_next"] = next_off
 
-    # =============== stock 분포 집계 ===============
-    if st.sidebar.button("📊 stock 분포 집계(샘플 기반)"):
-        try:
-            # 필터 없이 넓게 가져와서 샘플 분포 파악
-            raw_limit = int(max(limit, 100))
-            points, _ = svc.qc.scroll(
-                collection_name=col_name,
-                limit=raw_limit,
-                with_payload=True,
-                with_vectors=False,
-            )
-            from collections import Counter
-            cnt = Counter()
-            for p in points:
-                payload = p.payload or {}
-                md = payload.get("metadata") or {}
-                val = None
-                if isinstance(md, dict):
-                    val = md.get("stock")
-                # 문자열 또는 리스트 모두 대응
-                if isinstance(val, str):
-                    cnt[val] += 1
-                elif isinstance(val, list):
-                    for v in val:
-                        cnt[v] += 1
+    points = st.session_state["qdr_points"]
+    next_off = st.session_state.get("qdr_next")
 
-            top = [{"stock": k, "count": v} for k, v in cnt.most_common(30)]
-            if top:
-                st.sidebar.dataframe(top, use_container_width=True)
-            else:
-                st.sidebar.info("샘플에서 stock 값을 찾지 못했습니다.")
-        except Exception as e:
-            st.sidebar.error(f"집계 실패: {e}")
+    st.sidebar.caption(f"가져온 개수: {len(points)}  |  next_offset: `{next_off}`")
+
+    # 표시용 행 변환
+    def _mk_row(p) -> Dict[str, Any]:
+        payload = p.payload or {}
+        md = payload.get("metadata") or {}
+        # 자주 쓰는 키만 안전하게 뽑기
+        return {
+            "id": str(getattr(p, "id", "")),
+            "metadata.stock": md.get("stock", ""),
+            "metadata.title": md.get("title", ""),
+            "metadata.url": md.get("url", ""),
+            "metadata.published_at": md.get("published_at", md.get("date", "")),
+        }
+
+    rows = [_mk_row(p) for p in points]
+
+    # 클라이언트 측 문자열 필터(대소문자 무시)
+    if local_filter.strip():
+        q = local_filter.strip().lower()
+        def _hit(row: Dict[str, Any]) -> bool:
+            for v in row.values():
+                try:
+                    if q in str(v).lower():
+                        return True
+                except Exception:
+                    continue
+            return False
+        rows = [r for r in rows if _hit(r)]
+
+    st.sidebar.markdown("**샘플 미리보기**")
+    if rows:
+        st.sidebar.dataframe(rows, use_container_width=True)
+    else:
+        st.sidebar.info("표시할 결과가 없습니다.")
+
+    if show_raw:
+        st.sidebar.markdown("**Raw payload (상위 3건)**")
+        for p in points[:3]:
+            st.sidebar.json(p.payload or {})
 
 # -----------------------------
 # UI
@@ -201,7 +198,7 @@ if run_btn:
 
     svc =  NewsReportService()
     if svc is not None:
-        sidebar_qdrant_metadata_tools(svc)
+        sidebar_qdrant_payload_browser(svc)
     if svc is None:
         st.error("서비스를 초기화할 수 없습니다. 좌측의 Secrets 설정을 확인해 주세요.")
         st.stop()
@@ -256,6 +253,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - score(raw): `{score}` • distance_mode: `{distance_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
