@@ -1,7 +1,7 @@
 # app.py
 import os
 from typing import List, Dict, Any, Optional
-
+from qdrant_client.models import Filter, FieldCondition, MatchValue
 import streamlit as st
 
 # 서비스 코드 import (같은 리포에 news_rag_service.py가 있어야 합니다)
@@ -93,6 +93,8 @@ if run_btn:
         st.stop()
 
     svc =  NewsReportService()
+    if svc is not None:
+        sidebar_qdrant_metadata_tools(svc)
     if svc is None:
         st.error("서비스를 초기화할 수 없습니다. 좌측의 Secrets 설정을 확인해 주세요.")
         st.stop()
@@ -147,5 +149,115 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - score(raw): `{score}` • distance_mode: `{distance_mode}`")
             else:
                 st.write("소스 문서 없음")
+
+def sidebar_qdrant_metadata_tools(svc):
+    """
+    Qdrant 메타데이터를 간단히 훑어보는 사이드바 도구.
+    - 샘플 payload 확인
+    - stock 필터 스크롤
+    - payload 인덱스/스키마 확인
+    - stock 분포 집계
+    """
+    st.sidebar.subheader("🧭 Qdrant 메타데이터 탐색")
+
+    # 기본 옵션
+    col_name = getattr(svc, "collection", "stock_news")
+    st.sidebar.caption(f"Collection: `{col_name}`")
+
+    stock_filter = st.sidebar.text_input("stock 필터(옵션, metadata.stock)", value="")
+    limit = st.sidebar.number_input("가져올 샘플 개수", 5, 500, 20, step=5)
+    show_raw = st.sidebar.toggle("Raw payload 보이기", value=False)
+
+    # =============== 인덱스/스키마 보기 ===============
+    if st.sidebar.button("📑 인덱스/스키마 보기"):
+        try:
+            info = svc.qc.get_collection(col_name)
+            # payload_schema가 있으면 보여주고, 없으면 전체 info를 json으로 노출
+            payload_schema = getattr(info, "payload_schema", None)
+            st.sidebar.markdown("**Payload schema**")
+            if payload_schema:
+                st.sidebar.json(payload_schema)
+            else:
+                st.sidebar.json(info.dict() if hasattr(info, "dict") else str(info))
+        except Exception as e:
+            st.sidebar.error(f"스키마 조회 실패: {e}")
+
+    # =============== 샘플 payload 조회 ===============
+    if st.sidebar.button("🔍 샘플 payload 보기"):
+        try:
+            q_filter = None
+            if stock_filter.strip():
+                q_filter = Filter(
+                    must=[FieldCondition(key="metadata.stock", match=MatchValue(value=stock_filter.strip()))]
+                )
+
+            # scroll로 샘플 가져오기
+            points, _ = svc.qc.scroll(
+                collection_name=col_name,
+                limit=int(limit),
+                with_payload=True,
+                with_vectors=False,
+                scroll_filter=q_filter,   # qdrant_client>=1.6: scroll_filter, 구버전은 filter
+            )
+
+            def _row(p):
+                payload = p.payload or {}
+                md = payload.get("metadata") or {}
+                # 흔히 보는 필드만 안전하게 노출 (없으면 빈 문자열)
+                return {
+                    "id": str(getattr(p, "id", "")),
+                    "metadata.stock": (md.get("stock") if isinstance(md, dict) else ""),
+                    "metadata.title": (md.get("title") if isinstance(md, dict) else ""),
+                    "metadata.url": (md.get("url") if isinstance(md, dict) else ""),
+                }
+
+            rows = [_row(p) for p in points]
+            st.sidebar.markdown(f"**샘플 {len(rows)}건**")
+            if rows:
+                st.sidebar.dataframe(rows, use_container_width=True)
+            else:
+                st.sidebar.info("결과가 없습니다.")
+
+            if show_raw:
+                st.sidebar.markdown("**Raw payload (최대 3건)**")
+                for p in points[:3]:
+                    st.sidebar.json(p.payload or {})
+        except Exception as e:
+            # 인덱스 없는 필터 에러 등 → 안내
+            st.sidebar.error(f"샘플 조회 실패: {e}\n\n필요시 `metadata.stock`에 keyword 인덱스를 생성하세요.")
+
+    # =============== stock 분포 집계 ===============
+    if st.sidebar.button("📊 stock 분포 집계(샘플 기반)"):
+        try:
+            # 필터 없이 넓게 가져와서 샘플 분포 파악
+            raw_limit = int(max(limit, 100))
+            points, _ = svc.qc.scroll(
+                collection_name=col_name,
+                limit=raw_limit,
+                with_payload=True,
+                with_vectors=False,
+            )
+            from collections import Counter
+            cnt = Counter()
+            for p in points:
+                payload = p.payload or {}
+                md = payload.get("metadata") or {}
+                val = None
+                if isinstance(md, dict):
+                    val = md.get("stock")
+                # 문자열 또는 리스트 모두 대응
+                if isinstance(val, str):
+                    cnt[val] += 1
+                elif isinstance(val, list):
+                    for v in val:
+                        cnt[v] += 1
+
+            top = [{"stock": k, "count": v} for k, v in cnt.most_common(30)]
+            if top:
+                st.sidebar.dataframe(top, use_container_width=True)
+            else:
+                st.sidebar.info("샘플에서 stock 값을 찾지 못했습니다.")
+        except Exception as e:
+            st.sidebar.error(f"집계 실패: {e}")
 
 
