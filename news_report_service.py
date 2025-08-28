@@ -1,8 +1,18 @@
-# news_report_service.py
 # ------------------------------------------------------------
 # Qdrant + Vertex AI (Gemini / Embedding) 기반 RAG 서비스
 #   - 단일 질문(answer)
 #   - 5개 종목 병렬(Map) → 최종 통합(Reduce)
+# ------------------------------------------------------------
+# 수정 사항:
+# - retrieve 메서드에서 stock이 주어진 경우, 먼저 stock 값 매칭으로 포인트를 선별(scroll 사용)한 후,
+#   클라이언트 측에서 쿼리 벡터와의 유사도 계산(검색)을 수행하도록 구조 변경.
+# - 이는 서버 측 필터 인덱스 의존성을 제거하고, 사용자의 요구(먼저 선별 후 검색)에 맞춤.
+# - stock 필드가 list일 수 있음을 고려해 MatchAny 필터 사용 (string 필드에도 호환 가능하도록 테스트 필요, 하지만 Qdrant에서 array 필드에 MatchAny가 적합).
+# - 클라이언트 측 유사도 계산을 위해 numpy 사용 (환경에 포함됨).
+# - scroll 페이징 처리로 모든 매칭 포인트 가져옴 (종목당 문서 수가 많지 않다고 가정, e.g., <10k).
+# - distance_mode에 따라 cosine/dot/euclid 지원 (euclid는 negative distance로 similarity처럼 취급).
+# - 기존 에러 핸들링 제거, 항상 이 구조 사용.
+# - 기타: import 추가 (numpy), hits 변환 로직 docs 변환과 일치시킴.
 # ------------------------------------------------------------
 
 import os, re, threading
@@ -14,7 +24,9 @@ from vertexai.language_models import TextEmbeddingModel, TextEmbeddingInput
 from vertexai.generative_models import GenerativeModel
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Filter, FieldCondition, MatchValue
+from qdrant_client.models import Filter, FieldCondition, MatchAny
+
+import numpy as np  # 클라이언트 측 유사도 계산용
 
 # Streamlit 환경에서도/아니어도 동작하도록 안전 import
 try:
@@ -162,58 +174,96 @@ class NewsReportService:
         if isinstance(v, list):
             return stock.upper() in {str(x).upper() for x in v}
         return False
+
     # ----------------- Retrieve -----------------
     def retrieve(self, question: str, stock: Optional[str] = None) -> List[Dict[str, Any]]:
         qv = self._embed_query(question)
 
-        q_filter = None
+        # distance 모드 캐시 (클라이언트 계산에 필요)
+        if self._dist_mode is None:
+            try:
+                info = self._tl_qc().get_collection(self.collection)
+                params = getattr(info.config, "params", None) or getattr(info, "config", None)
+                vectors = getattr(params, "vectors", None)
+                self._dist_mode = str(getattr(vectors, "distance", "")).lower() if vectors else "cosine"
+            except Exception:
+                self._dist_mode = "cosine"  # 기본 폴백
+
         if stock:
-            # 둘 중 어느 구조든 잡히도록 OR(should) 조건
-            q_filter = Filter(must=[FieldCondition(key="stock", match=MatchValue(value=stock))])
-            
-        # 검색 (인덱스 없으면 폴백)
-        try:
+            # stock 필드가 list일 수 있으므로 MatchAny 사용 (string에도 적용 가능하도록)
+            q_filter = Filter(must=[FieldCondition(key="stock", match=MatchAny(any=[stock]))])
+
+            # 먼저 stock 매칭 포인트 선별 (scroll with filter, 페이징 처리)
+            all_points = []
+            offset = None
+            while True:
+                result = self._tl_qc().scroll(
+                    collection_name=self.collection,
+                    scroll_filter=q_filter,
+                    limit=500,  # 배치 크기 (조정 가능, 종목당 총 문서 수에 따라)
+                    with_payload=True,
+                    with_vectors=True,
+                    offset=offset,
+                )
+                points, next_offset = result
+                all_points.extend(points)
+                if next_offset is None:
+                    break
+                offset = next_offset
+
+            # 선별된 포인트 중 벡터 검색 (클라이언트 측 유사도 계산)
+            if all_points:
+                valid_points = [p for p in all_points if p.vector is not None]
+                if not valid_points:
+                    hits = []
+                else:
+                    vectors = np.array([p.vector for p in valid_points])
+                    qv_np = np.array(qv)
+
+                    if self._dist_mode == "cosine":
+                        vec_norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+                        qv_norm = np.linalg.norm(qv_np)
+                        vectors = vectors / np.maximum(vec_norms, 1e-9)  # 0-norm 방지
+                        qv_np = qv_np / max(qv_norm, 1e-9)
+                        scores = np.dot(vectors, qv_np)
+                    elif self._dist_mode == "dot":
+                        scores = np.dot(vectors, qv_np)
+                    elif self._dist_mode == "euclid":
+                        scores = -np.sqrt(np.sum((vectors - qv_np) ** 2, axis=1))
+                    else:
+                        raise ValueError(f"Unsupported distance mode: {self._dist_mode}")
+
+                    # 정렬 (cosine/dot: 내림차순, euclid: 오름차순(negative이므로 내림차순 효과))
+                    is_descending = self._dist_mode in ("cosine", "dot")
+                    sorted_indices = np.argsort(scores)[::-1 if is_descending else 1]
+                    limit = self.rerank_top_k if self.use_rerank else self.top_k
+                    top_indices = sorted_indices[:limit]
+
+                    hits = []
+                    for idx in top_indices:
+                        p = valid_points[idx]
+                        hit = type('Hit', (), {})()  # 간단 mock hit 객체
+                        hit.id = p.id
+                        hit.payload = p.payload
+                        hit.score = float(scores[idx])
+                        hits.append(hit)
+            else:
+                hits = []
+        else:
+            # stock 없음: 기존 벡터 검색 (필터 없이)
             hits = self._tl_qc().search(
                 collection_name=self.collection,
                 query_vector=qv,
                 limit=self.top_k if not self.use_rerank else self.rerank_top_k,
                 with_payload=True,
                 with_vectors=False,
-                query_filter=q_filter,
             )
-        except Exception as e:
-            if stock and ("Index required" in str(e) or "Bad request" in str(e)):
-                # 서버 필터 제거 → 넓게 검색 후 클라이언트에서 거르기
-                raw_limit = (self.rerank_top_k if self.use_rerank else self.top_k) * 5
-                hits = self._tl_qc().search(
-                    collection_name=self.collection,
-                    query_vector=qv,
-                    limit=raw_limit,
-                    with_payload=True,
-                    with_vectors=False,
-                    query_filter=None,
-                )
-                hits = [h for h in hits if self._payload_matches_stock_root(h.payload, stock)]
-                hits = hits[: (self.rerank_top_k if self.use_rerank else self.top_k)]
-            else:
-                raise
 
-        # distance 모드 캐시
-        if self._dist_mode is None:
-            try:
-                info = self._tl_qc().get_collection(self.collection)
-                params = getattr(info.config, "params", None) or getattr(info, "config", None)
-                vectors = getattr(params, "vectors", None)
-                self._dist_mode = str(getattr(vectors, "distance", "")).lower() if vectors else ""
-            except Exception:
-                self._dist_mode = ""
-
-        # payload → docs 변환 (metadata 래퍼 없음에 맞춰 수정)
+        # hits → docs 변환
         docs: List[Dict[str, Any]] = []
         for h in hits:
             payload = h.payload or {}
             text = self._extract_text_from_payload(payload)
-            # 루트에 있는 모든 키 중 text만 제외해서 metadata로 전달
             md = {k: v for k, v in payload.items() if k != "text"}
 
             raw = getattr(h, "score", None)
@@ -222,7 +272,7 @@ class NewsReportService:
             docs.append({
                 "id": str(getattr(h, "id", "")),
                 "content": text,
-                "metadata": md,               # ex) doc_id, chunk_idx, stock, original ...
+                "metadata": md,
                 "score": distance,
                 "distance": distance,
                 "distance_mode": self._dist_mode,
@@ -426,6 +476,3 @@ if __name__ == "__main__":
     for r in result.get("results", []):
         print(f"\n--- [{r.get('stock','')}] ---")
         print((r.get("answer") or "")[:1200])
-
-
-
