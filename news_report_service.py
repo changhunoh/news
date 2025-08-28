@@ -320,7 +320,7 @@ class NewsReportService:
                 elif title:       out.append(title)
                 elif url:         out.append(url)
             return out
-
+    
         lines, source_lines = [], []
         for r in per_stock_results:
             stock = r["stock"]
@@ -328,31 +328,35 @@ class NewsReportService:
             lines.append(f"### [{stock}] 부분답\n{ans}\n")
             for s in _fmt_sources(r.get("source_documents", [])):
                 source_lines.append(f"[{stock}] {s}")
-
+    
         # 순서 보존 dedup
         seen, dedup = set(), []
         for s in source_lines:
             if s not in seen:
                 seen.add(s); dedup.append(s)
-
+    
+        # ✅ f-string 안에 백슬래시가 들어가던 join을 미리 계산
+        parts_joined   = "\n\n".join(lines)
+        sources_joined = "\n".join(dedup[:12])
+    
         prompt = f"""
-당신은 증권사 리서치센터장입니다.
-아래 각 종목의 부분 답변을 취합하여, 공통 질의("{base_template}")에 대한 **종합 리포트**를 작성하세요.
-
-[요구사항]
-1) 종목별 핵심 뉴스와 가격 영향 경로를 비교 정리(긍/부정, 단기/중기)
-2) 공통 테마(금리, 환율, 공급망, 규제 등) 식별 및 교차영향 설명
-3) 종목별 리스크/촉발요인, 모니터링 지표 제시
-4) 결론: 포트폴리오 관점 제언(오버웨이트/뉴트럴/언더웨이트 등 사용 가능)
-5) 수치는 `백틱`으로, 핵심 포인트는 **굵게**, 불릿 적절 활용
-6) 모호하면 '관련된 정보를 찾을 수 없습니다.'라고 분명히 표기
-
-[종목별 부분답 모음]
-{'\n\n'.join(lines)}
-
-[근거 기사/자료 후보]
-{'\n'.join(dedup[:12])}
-"""
+    당신은 증권사 리서치센터장입니다.
+    아래 각 종목의 부분 답변을 취합하여, 공통 질의("{base_template}")에 대한 **종합 리포트**를 작성하세요.
+    
+    [요구사항]
+    1) 종목별 핵심 뉴스와 가격 영향 경로를 비교 정리(긍/부정, 단기/중기)
+    2) 공통 테마(금리, 환율, 공급망, 규제 등) 식별 및 교차영향 설명
+    3) 종목별 리스크/촉발요인, 모니터링 지표 제시
+    4) 결론: 포트폴리오 관점 제언(오버웨이트/뉴트럴/언더웨이트 등 사용 가능)
+    5) 수치는 `백틱`으로, 핵심 포인트는 **굵게**, 불릿 적절 활용
+    6) 모호하면 '관련된 정보를 찾을 수 없습니다.'라고 분명히 표기
+    
+    [종목별 부분답 모음]
+    {parts_joined}
+    
+    [근거 기사/자료 후보]
+    {sources_joined}
+    """
         try:
             resp = self.gen_model.generate_content(
                 prompt, generation_config={"temperature": 0.25, "max_output_tokens": 1024}
@@ -390,3 +394,4 @@ if __name__ == "__main__":
     svc = NewsReportService(top_k=5, use_rerank=False)
     result = svc.answer_5_stocks_and_reduce(["AAPL", "NVDA", "TSLA", "MSFT", "AMZN"])
     print((result.get("final_report") or "")[:2000])
+
