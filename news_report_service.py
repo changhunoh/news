@@ -141,6 +141,11 @@ class NewsReportService:
         self._ensure_models()
         return self._thread_local.gen_model
 
+    @property
+    def rag_model(self) -> GenerativeModel:
+        self._ensure_models()
+        return self._thread_local.gen_model
+
     def _ensure_stock_index(self) -> None:
         """루트 'stock'에 keyword 인덱스 보장(없으면 생성)."""
         try:
@@ -273,7 +278,14 @@ class NewsReportService:
             resp = self._thread_local.rag_model.generate_content(
                 prompt,
                 generation_config={"temperature": 0.0},
-            )
+                safety_settings={
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+        }
+    )
+                
             return (getattr(resp, "text", None) or "").strip()
         except Exception as e:
             return f"답변 생성 중 오류가 발생했습니다: {e}"
@@ -405,6 +417,7 @@ class NewsReportService:
             return int(getattr(res, "count", 0))
         except Exception:
             return 0
+
 
 
 
