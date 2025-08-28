@@ -332,11 +332,13 @@ def render_messages(msgs, placeholder):
             else:
                 text=_linkify(_escape_html(m.get("content","")))
                 content_text = m.get("content","")
+                # JavaScript에서 사용할 수 있도록 텍스트 이스케이프
+                escaped_content = content_text.replace('\\', '\\\\').replace('`', '\\`').replace("'", "\\'").replace('"', '\\"')
                 html_parts.append(
                     "<div class='chat-row bot-row'>"
                     f"{_avatar_html('assistant')}"
                     f"<div><div class='bubble bot'>{text}</div>"
-                    f"<button class='copy-btn' onclick='copyToClipboard(`{content_text.replace('`', '\\`').replace('\\', '\\\\')}`)'>📋 복사</button>"
+                    f"<button class='copy-btn' onclick='copyToClipboard(\"{escaped_content}\")'>📋 복사</button>"
                     f"<div class='time'>{ts}</div></div></div>"
                 )
         else: # user
