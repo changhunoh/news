@@ -1,21 +1,11 @@
+# news_report_service.py
 # ------------------------------------------------------------
 # Qdrant + Vertex AI (Gemini / Embedding) 기반 RAG 서비스
-#   - 단일 질문(answer)
-#   - 5개 종목 병렬(Map) → 최종 통합(Reduce)
-# ------------------------------------------------------------
-# 수정 사항:
-# - retrieve 메서드에서 stock이 주어진 경우, 먼저 stock 값 매칭으로 포인트를 선별(scroll 사용)한 후,
-#   클라이언트 측에서 쿼리 벡터와의 유사도 계산(검색)을 수행하도록 구조 변경.
-# - 이는 서버 측 필터 인덱스 의존성을 제거하고, 사용자의 요구(먼저 선별 후 검색)에 맞춤.
-# - stock 필드가 list일 수 있음을 고려해 MatchAny 필터 사용 (string 필드에도 호환 가능하도록 테스트 필요, 하지만 Qdrant에서 array 필드에 MatchAny가 적합).
-# - 클라이언트 측 유사도 계산을 위해 numpy 사용 (환경에 포함됨).
-# - scroll 페이징 처리로 모든 매칭 포인트 가져옴 (종목당 문서 수가 많지 않다고 가정, e.g., <10k).
-# - distance_mode에 따라 cosine/dot/euclid 지원 (euclid는 negative distance로 similarity처럼 취급).
-# - 기존 에러 핸들링 제거, 항상 이 구조 사용.
-# - 기타: import 추가 (numpy), hits 변환 로직 docs 변환과 일치시킴.
+#   - stock으로 먼저 서버-사이드 필터 → 필터된 서브셋에서 벡터검색
+#   - 단일 질문 + 5개 종목 병렬(Map) → 최종 통합(Reduce)
 # ------------------------------------------------------------
 
-import os, re, threading
+import os, threading, re
 from typing import List, Dict, Any, Optional, TypedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -24,22 +14,23 @@ from vertexai.language_models import TextEmbeddingModel, TextEmbeddingInput
 from vertexai.generative_models import GenerativeModel
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Filter, FieldCondition, MatchAny
+from qdrant_client.models import (
+    Filter, FieldCondition, MatchValue, PayloadSchemaType
+)
 
-import numpy as np  # 클라이언트 측 유사도 계산용
-
-# Streamlit 환경에서도/아니어도 동작하도록 안전 import
+# Streamlit이 없을 수도 있으니 안전 import
 try:
     import streamlit as st
-except Exception:  # streamlit 미설치 환경
+except Exception:
     class _DummySt:
         secrets = {}
     st = _DummySt()
 
+# 서비스계정 import (환경에 따라 없을 수 있음)
 try:
     from google.oauth2 import service_account
 except Exception:
-    service_account = None  # 외부환경용
+    service_account = None
 
 
 class RAGState(TypedDict):
@@ -49,15 +40,15 @@ class RAGState(TypedDict):
 
 
 class NewsReportService:
-    """Qdrant + Gemini 기반 RAG 서비스 (단일/다중 종목 대응)"""
+    """루트 payload 스키마(text/stock/...) 기준. stock pre-filter → 벡터검색."""
     _thread_local = threading.local()
 
     def __init__(
         self,
-        project: str | None = None,
+        project: Optional[str] = None,
         location: str = "us-central1",
-        qdrant_url: str | None = None,
-        qdrant_key: str | None = None,
+        qdrant_url: Optional[str] = None,
+        qdrant_key: Optional[str] = None,
         collection: str = "stock_news",
         embed_model_name: str = "gemini-embedding-001",
         gen_model_name: str = "gemini-2.5-pro",
@@ -66,13 +57,12 @@ class NewsReportService:
         rerank_top_k: int = 5,
         use_rerank: bool = False,
     ):
-        # ---- GCP 설정 ----
+        # ---- GCP & Vertex init ----
         self.project = project or os.getenv("GOOGLE_CLOUD_PROJECT")
         self.location = location or os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
         if not self.project:
             raise RuntimeError("GOOGLE_CLOUD_PROJECT required")
 
-        # 서비스계정(st.secrets) → Credentials
         sa_info = None
         try:
             sa_info = getattr(st, "secrets", {}).get("gcp_service_account", None)  # type: ignore[attr-defined]
@@ -88,7 +78,7 @@ class NewsReportService:
 
         vertexai.init(project=self.project, location=self.location, credentials=creds)
 
-        # ---- Qdrant 설정 ----
+        # ---- Qdrant ----
         self.qdrant_url = qdrant_url or os.getenv("QDRANT_URL")
         self.qdrant_key = qdrant_key or os.getenv("QDRANT_API_KEY")
         if not (self.qdrant_url and self.qdrant_key):
@@ -102,18 +92,19 @@ class NewsReportService:
         self.rerank_top_k = int(rerank_top_k or int(os.getenv("RERANK_TOP_K", "5")))
         self.use_rerank = use_rerank
 
-        # distance 모드 캐시
         self._dist_mode: Optional[str] = None
 
-        # 프로세스 단일 Qdrant 클라 (가벼운 작업용)
+        # 프로세스 전역 클라이언트 + 스레드-로컬 클라이언트
         self.qc = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_key)
 
-        # 모델 & 스레드-로컬 캐시 준비
+        # 모델 핸들 준비
         self._ensure_models()
+
+        # 필터를 쓰려면 인덱스가 필요 → 한 번 보장
+        self._ensure_stock_index()
 
     # ----------------- 내부 유틸 -----------------
     def _ensure_models(self):
-        """스레드-로컬 모델 핸들 캐시"""
         if (not hasattr(self._thread_local, "embed_model")
             or getattr(self._thread_local, "embed_name", None) != self.embed_model_name):
             self._thread_local.embed_model = TextEmbeddingModel.from_pretrained(self.embed_model_name)
@@ -125,7 +116,6 @@ class NewsReportService:
             self._thread_local.gen_name = self.gen_model_name
 
     def _tl_qc(self) -> QdrantClient:
-        """스레드-로컬 Qdrant 클라이언트 (병렬 안전)"""
         if not hasattr(self._thread_local, "qc"):
             self._thread_local.qc = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_key)
         return self._thread_local.qc
@@ -140,24 +130,32 @@ class NewsReportService:
         self._ensure_models()
         return self._thread_local.gen_model
 
-    # ----------------- 임베딩 -----------------
+    def _ensure_stock_index(self) -> None:
+        """루트 'stock'에 keyword 인덱스 보장(없으면 생성)."""
+        try:
+            self.qc.create_payload_index(
+                collection_name=self.collection,
+                field_name="stock",
+                field_schema=PayloadSchemaType.KEYWORD,  # 또는 "keyword"
+                wait=True,
+            )
+        except Exception:
+            # 이미 있거나 권한 문제면 조용히 패스
+            pass
+
+    # ----------------- 임베딩 & 텍스트 -----------------
     def _embed_query(self, text: str) -> List[float]:
         inp = [TextEmbeddingInput(text=text or "", task_type="RETRIEVAL_QUERY")]
         return self.embed_model.get_embeddings(inp, output_dimensionality=self.embed_dim)[0].values
 
-    # ----------------- Payload 텍스트 추출 -----------------
     @staticmethod
     def _extract_text_from_payload(payload: dict) -> str:
-        """
-        현재 스키마 기준:
-          - 본문은 payload["text"] (string)
-          - 'metadata' 래퍼 없음
-        """
+        """현재 스키마: 본문은 payload['text'] (metadata 래퍼 없음)"""
         if not isinstance(payload, dict):
             return ""
         if isinstance(payload.get("text"), str):
             return payload["text"]
-        # 혹시 과거 스키마도 들어올 수 있으니 백업 경로 유지
+        # 호환(이전 스키마)
         doc = payload.get("doc")
         if isinstance(doc, str):
             return doc
@@ -165,110 +163,59 @@ class NewsReportService:
             return doc.get("content") or doc.get("text") or doc.get("page_content") or ""
         return ""
 
-    def _payload_matches_stock_root(self, payload: dict, stock: str) -> bool:
-        if not payload or not stock:
-            return False
-        v = payload.get("stock")
-        if isinstance(v, str):
-            return v.upper() == stock.upper()
-        if isinstance(v, list):
-            return stock.upper() in {str(x).upper() for x in v}
-        return False
-
-    # ----------------- Retrieve -----------------
+    # ----------------- Retrieve (stock pre-filter → vector search) -----------------
     def retrieve(self, question: str, stock: Optional[str] = None) -> List[Dict[str, Any]]:
         qv = self._embed_query(question)
+        want = self.rerank_top_k if self.use_rerank else self.top_k
 
-        # distance 모드 캐시 (클라이언트 계산에 필요)
+        q_filter = None
+        if stock:
+            self._ensure_stock_index()
+            q_filter = Filter(must=[FieldCondition(key="stock", match=MatchValue(value=str(stock)))])
+
+        # 필터된 서브셋에서 벡터검색
+        try:
+            hits = self._tl_qc().search(
+                collection_name=self.collection,
+                query_vector=qv,
+                limit=want,
+                with_payload=True,
+                with_vectors=False,
+                query_filter=q_filter,
+            )
+        except Exception as e:
+            # 인덱스 이슈 등 → 한 번 더 인덱스 보장 후 재시도
+            if stock and ("Index required" in str(e) or "Bad request" in str(e)):
+                self._ensure_stock_index()
+                hits = self._tl_qc().search(
+                    collection_name=self.collection,
+                    query_vector=qv,
+                    limit=want,
+                    with_payload=True,
+                    with_vectors=False,
+                    query_filter=q_filter,
+                )
+            else:
+                raise
+
+        # distance 모드 캐시
         if self._dist_mode is None:
             try:
                 info = self._tl_qc().get_collection(self.collection)
                 params = getattr(info.config, "params", None) or getattr(info, "config", None)
                 vectors = getattr(params, "vectors", None)
-                self._dist_mode = str(getattr(vectors, "distance", "")).lower() if vectors else "cosine"
+                self._dist_mode = str(getattr(vectors, "distance", "")).lower() if vectors else ""
             except Exception:
-                self._dist_mode = "cosine"  # 기본 폴백
+                self._dist_mode = ""
 
-        if stock:
-            # stock 필드가 list일 수 있으므로 MatchAny 사용 (string에도 적용 가능하도록)
-            q_filter = Filter(must=[FieldCondition(key="stock", match=MatchAny(any=[stock]))])
-
-            # 먼저 stock 매칭 포인트 선별 (scroll with filter, 페이징 처리)
-            all_points = []
-            offset = None
-            while True:
-                result = self._tl_qc().scroll(
-                    collection_name=self.collection,
-                    scroll_filter=q_filter,
-                    limit=500,  # 배치 크기 (조정 가능, 종목당 총 문서 수에 따라)
-                    with_payload=True,
-                    with_vectors=True,
-                    offset=offset,
-                )
-                points, next_offset = result
-                all_points.extend(points)
-                if next_offset is None:
-                    break
-                offset = next_offset
-
-            # 선별된 포인트 중 벡터 검색 (클라이언트 측 유사도 계산)
-            if all_points:
-                valid_points = [p for p in all_points if p.vector is not None]
-                if not valid_points:
-                    hits = []
-                else:
-                    vectors = np.array([p.vector for p in valid_points])
-                    qv_np = np.array(qv)
-
-                    if self._dist_mode == "cosine":
-                        vec_norms = np.linalg.norm(vectors, axis=1, keepdims=True)
-                        qv_norm = np.linalg.norm(qv_np)
-                        vectors = vectors / np.maximum(vec_norms, 1e-9)  # 0-norm 방지
-                        qv_np = qv_np / max(qv_norm, 1e-9)
-                        scores = np.dot(vectors, qv_np)
-                    elif self._dist_mode == "dot":
-                        scores = np.dot(vectors, qv_np)
-                    elif self._dist_mode == "euclid":
-                        scores = -np.sqrt(np.sum((vectors - qv_np) ** 2, axis=1))
-                    else:
-                        raise ValueError(f"Unsupported distance mode: {self._dist_mode}")
-
-                    # 정렬 (cosine/dot: 내림차순, euclid: 오름차순(negative이므로 내림차순 효과))
-                    is_descending = self._dist_mode in ("cosine", "dot")
-                    sorted_indices = np.argsort(scores)[::-1 if is_descending else 1]
-                    limit = self.rerank_top_k if self.use_rerank else self.top_k
-                    top_indices = sorted_indices[:limit]
-
-                    hits = []
-                    for idx in top_indices:
-                        p = valid_points[idx]
-                        hit = type('Hit', (), {})()  # 간단 mock hit 객체
-                        hit.id = p.id
-                        hit.payload = p.payload
-                        hit.score = float(scores[idx])
-                        hits.append(hit)
-            else:
-                hits = []
-        else:
-            # stock 없음: 기존 벡터 검색 (필터 없이)
-            hits = self._tl_qc().search(
-                collection_name=self.collection,
-                query_vector=qv,
-                limit=self.top_k if not self.use_rerank else self.rerank_top_k,
-                with_payload=True,
-                with_vectors=False,
-            )
-
-        # hits → docs 변환
+        # hits → docs
         docs: List[Dict[str, Any]] = []
         for h in hits:
             payload = h.payload or {}
             text = self._extract_text_from_payload(payload)
-            md = {k: v for k, v in payload.items() if k != "text"}
-
+            md = {k: v for k, v in payload.items() if k != "text"}  # 루트 payload 전체를 메타데이터로
             raw = getattr(h, "score", None)
             distance = float(raw) if raw is not None else None
-
             docs.append({
                 "id": str(getattr(h, "id", "")),
                 "content": text,
@@ -281,19 +228,15 @@ class NewsReportService:
 
     # ----------------- (선택) 리랭크 -----------------
     def rerank(self, question: str, docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        # TODO: Vertex Ranking / Cross-Encoder 붙일 수 있음. 지금은 top_k 자르기만.
         return (docs or [])[: self.top_k]
 
     # ----------------- Generate -----------------
     def generate(self, question: str, docs: List[Dict[str, Any]], stock: Optional[str] = None) -> str:
         if not docs:
             return "관련된 정보를 찾을 수 없습니다."
-
-        # 컨텍스트 길이 관리(상위 5개 발췌)
         def _trunc(s: str, limit=1600):
             s = s or ""
             return s if len(s) <= limit else s[:limit] + "..."
-
         ctx = "\n\n---\n\n".join(_trunc(d["content"]) for d in docs[:5])
 
         prompt = f"""
@@ -319,17 +262,17 @@ class NewsReportService:
         try:
             resp = self.gen_model.generate_content(
                 prompt,
-                generation_config={"temperature": 0.2},
+                generation_config={"temperature": 0.2, "max_output_tokens": 768},
             )
             return (getattr(resp, "text", None) or "").strip()
         except Exception as e:
             return f"답변 생성 중 오류가 발생했습니다: {e}"
 
-    # ----------------- Public: 단일 질문 -----------------
+    # ----------------- Public APIs -----------------
     def answer(self, question: str, stock: Optional[str] = None) -> Dict[str, Any]:
         docs = self.retrieve(question, stock=stock)
         docs = self.rerank(question, docs) if self.use_rerank else docs[: self.top_k]
-        ans = self.generate(question, docs, stock=stock)  # ← stock 전달
+        ans = self.generate(question, docs, stock=stock)
         return {"answer": ans, "source_documents": docs}
 
     def retrieve_only(self, question: str, top_k: Optional[int] = None, stock: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -340,9 +283,7 @@ class NewsReportService:
         finally:
             self.top_k = prev_top_k
 
-    # ======================================================
-    # ===============  다중 종목 Map → Reduce  =============
-    # ======================================================
+    # ----------------- 다중 종목 Map → Reduce -----------------
     def _stock_question(self, stock: str, template: Optional[str] = None) -> str:
         template = template or "{stock} 관련해서 종목의 가격에 중요한 뉴스는?"
         return template.format(stock=stock)
@@ -357,44 +298,30 @@ class NewsReportService:
             "source_documents": res.get("source_documents", []),
         }
 
-    def answer_multi_stocks(
-        self,
-        stocks: List[str],
-        template: Optional[str] = None,
-        max_workers: int = 5,
-    ) -> List[Dict[str, Any]]:
-        """여러 종목 동시 처리(Map) — 입력 순서 보존"""
+    def answer_multi_stocks(self, stocks: List[str], template: Optional[str] = None, max_workers: int = 5) -> List[Dict[str, Any]]:
         results: List[Optional[Dict[str, Any]]] = [None] * len(stocks)
-
         def _one(i: int, s: str) -> tuple[int, Dict[str, Any]]:
             return i, self.answer_for_stock(s, template=template)
-
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
             futs = [ex.submit(_one, i, s) for i, s in enumerate(stocks)]
             for fut in as_completed(futs):
                 i, r = fut.result()
                 results[i] = r
-
         return [r for r in results if r is not None]
 
     def _reduce_across_stocks(self, base_template: str, per_stock_results: List[Dict[str, Any]]) -> str:
-        # 간단 소스 요약(제목/URL) 모으기
         def _fmt_sources(docs: List[Dict[str, Any]]) -> List[str]:
             out = []
             for d in docs[:3]:
                 md = d.get("metadata", {}) or {}
-                title = md.get("title") or md.get("headline") or md.get("doc_title") or ""
+                title = md.get("title") or md.get("headline") or md.get("doc_title") or md.get("doc_id") or ""
                 url = md.get("url") or md.get("link") or md.get("source_url") or ""
-                if title and url:
-                    out.append(f"{title} — {url}")
-                elif title:
-                    out.append(title)
-                elif url:
-                    out.append(url)
+                if title and url: out.append(f"{title} — {url}")
+                elif title:       out.append(title)
+                elif url:         out.append(url)
             return out
 
-        lines = []
-        source_lines = []
+        lines, source_lines = [], []
         for r in per_stock_results:
             stock = r["stock"]
             ans = (r.get("answer") or "").strip()
@@ -402,14 +329,11 @@ class NewsReportService:
             for s in _fmt_sources(r.get("source_documents", [])):
                 source_lines.append(f"[{stock}] {s}")
 
-        joined_parts = "\n\n".join(lines)
-        # 순서 보존 중복 제거
+        # 순서 보존 dedup
         seen, dedup = set(), []
         for s in source_lines:
             if s not in seen:
-                seen.add(s)
-                dedup.append(s)
-        joined_sources = "\n".join(dedup[:12])
+                seen.add(s); dedup.append(s)
 
         prompt = f"""
 당신은 증권사 리서치센터장입니다.
@@ -424,55 +348,45 @@ class NewsReportService:
 6) 모호하면 '관련된 정보를 찾을 수 없습니다.'라고 분명히 표기
 
 [종목별 부분답 모음]
-{joined_parts}
+{'\n\n'.join(lines)}
 
 [근거 기사/자료 후보]
-{joined_sources}
+{'\n'.join(dedup[:12])}
 """
         try:
             resp = self.gen_model.generate_content(
-                prompt,
-                generation_config={"temperature": 0.0},
+                prompt, generation_config={"temperature": 0.25, "max_output_tokens": 1024}
             )
             return (getattr(resp, "text", None) or "").strip()
         except Exception as e:
             return f"최종 통합 생성 오류: {e}"
 
-    def answer_5_stocks_and_reduce(
-        self,
-        stocks: List[str],   # 5개 권장(3~8개도 동작)
-        template: Optional[str] = None,  # 기본: "{stock} 관련해서 종목의 가격에 중요한 뉴스는?"
-        max_workers: int = 5,
-    ) -> Dict[str, Any]:
+    def answer_5_stocks_and_reduce(self, stocks: List[str], template: Optional[str] = None, max_workers: int = 5) -> Dict[str, Any]:
         template = template or "{stock} 관련해서 종목의 가격에 중요한 뉴스는?"
         per_stock = self.answer_multi_stocks(stocks, template=template, max_workers=max_workers)
         final = self._reduce_across_stocks(template, per_stock)
         return {
             "base_template": template,
             "stocks": stocks,
-            "results": per_stock,   # [{stock, question, answer, source_documents}, ...]
-            "final_report": final,  # 종합 리포트
+            "results": per_stock,
+            "final_report": final,
         }
 
+    # ---- 진단용: 해당 종목 문서 수 ----
+    def count_by_stock(self, stock: str) -> int:
+        self._ensure_stock_index()
+        try:
+            res = self.qc.count(
+                collection_name=self.collection,
+                count_filter=Filter(must=[FieldCondition(key="stock", match=MatchValue(value=str(stock)))]),
+                exact=True,
+            )
+            return int(getattr(res, "count", 0))
+        except Exception:
+            return 0
 
-# ------------------------------------------------------------
-# 간단 실행 예시 (환경변수 세팅 필요)
-#   - GOOGLE_CLOUD_PROJECT
-#   - (옵션) GOOGLE_CLOUD_LOCATION
-#   - QDRANT_URL, QDRANT_API_KEY
-#   - COLLECTION_NAME (기본: stock_news)
-#   - EMBED_MODEL_NAME, GENAI_MODEL_NAME, EMBED_DIM, DEFAULT_TOP_K, RERANK_TOP_K
-# ------------------------------------------------------------
+
 if __name__ == "__main__":
-    # 예: 5개 종목 동시 처리 후 통합
-    stocks = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN"]  # 원하는 티커/심볼 리스트로 교체
     svc = NewsReportService(top_k=5, use_rerank=False)
-
-    result = svc.answer_5_stocks_and_reduce(stocks)
-    print("=== [FINAL REPORT] ===\n")
-    print((result.get("final_report") or "")[:4000])  # 길면 앞부분만 출력
-
-    # 종목별 부분답 미리보기
-    for r in result.get("results", []):
-        print(f"\n--- [{r.get('stock','')}] ---")
-        print((r.get("answer") or "")[:1200])
+    result = svc.answer_5_stocks_and_reduce(["AAPL", "NVDA", "TSLA", "MSFT", "AMZN"])
+    print((result.get("final_report") or "")[:2000])
