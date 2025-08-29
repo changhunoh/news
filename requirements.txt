@@ -170,7 +170,7 @@ xlrd==2.0.2
 xxhash==3.5.0
 yarl==1.20.1
 yfinance==0.2.65
-#mcp 추가
+#mcp추가
 annotated-types==0.7.0
 anyio==4.10.0
 attrs==25.3.0
@@ -200,7 +200,6 @@ jsonschema-specifications==2025.4.1
 lazy-object-proxy==1.12.0
 markdown-it-py==4.0.0
 MarkupSafe==3.0.2
-mcp==1.13.1
 mdurl==0.1.2
 more-itertools==10.7.0
 openapi-core==0.19.5
