@@ -3,6 +3,12 @@ import os, sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.resolve()))
 
+import streamlit as st
+
+# 1) Streamlit secrets를 환경변수로 주입 (이미 값 있으면 덮어쓰지 않음)
+for k, v in st.secrets.items():
+    os.environ.setdefault(k, str(v))
+
 from mcp_server import inquery_stock_info  # ← 점(.) 제거
 
 import asyncio, datetime as dt
@@ -80,6 +86,7 @@ if st.button("차트 그리기"):
                     )])
                     fig.update_layout(title=f"{sym} 캔들차트", xaxis_title="날짜", yaxis_title="가격")
                     st.plotly_chart(fig, use_container_width=True)
+
 
 
 
