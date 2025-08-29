@@ -45,10 +45,6 @@ def get_service() -> Optional[NewsReportService]:
         st.warning(f"서비스 초기화 실패: {e}")
         return None
 
-# ======================
-# 페이지 설정
-# ======================
-st.set_page_config(page_title="Hover Sidebar Demo", layout="wide")
 
 # ======================
 # CSS: 사이드바 hover 시에만 보이도록
@@ -171,6 +167,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - {meta_line} • score(raw): `{score}` • mode: `{dist_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
