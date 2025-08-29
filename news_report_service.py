@@ -196,7 +196,7 @@ class NewsReportService:
 
         # 필터된 서브셋에서 벡터검색
         try:
-            hits = self._tl_qc().search(
+            hits = self.qc.search(
                 collection_name=self.collection,
                 query_vector=qv,
                 limit=want,
@@ -490,6 +490,7 @@ if __name__ == "__main__":
     print("=" * 80)
     print(">>> 최종 통합 리포트:")
     print(result["final_report"])
+
 
 
 
