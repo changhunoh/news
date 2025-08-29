@@ -311,7 +311,7 @@ class NewsReportService:
 """
         try:
             # rag_model (1.5 pro) 사용
-            resp = self._thread_local.rag_model.generate_content(
+            resp = self.rag_model.generate_content(
                 prompt,
                 generation_config=self._gen_config(temperature=0.0),
                 safety_settings=self._safe_settings(),
@@ -422,7 +422,7 @@ class NewsReportService:
     """
         print(f'gen_ai {prompt}')
         try:
-            resp = self._thread_local.gen_model.generate_content(
+            resp = self.gen_model.generate_content(
                 prompt, 
                 generation_config=self._gen_config(temperature=0.25),
                 safety_settings=self._safe_settings())
@@ -484,5 +484,6 @@ if __name__ == "__main__":
     print("=" * 80)
     print(">>> 최종 통합 리포트:")
     print(result["final_report"])
+
 
 
