@@ -77,8 +77,6 @@ st.markdown(
 # -----------------------------
 st.title("💰 우리연금술사 종합리포트")
 #st.caption("우리 연금술사가 창훈님을 위해 제작한 퇴직연금 종합 리포트에요")
-st.title("Hover Sidebar Demo")
-st.write("👉 왼쪽 가장자리에 마우스를 올리면 사이드바가 나타납니다.")
 
 with st.sidebar:
     st.subheader("실행 설정")
@@ -173,6 +171,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - {meta_line} • score(raw): `{score}` • mode: `{dist_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
