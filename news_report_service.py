@@ -416,7 +416,7 @@ class NewsReportService:
     당신은 증권사 리서치센터장입니다.
     아래 각 종목의 부분 답변을 취합하여 **종합 리포트**를 작성하세요.
     종합리포트 작성 시 역할 설명은 필요 없으며, 답변 안에 자기소개는 포함하지 마세요.
-    제목은 "💰 퇴직연금 종합리포트"라고만 붙여주세요.
+    제목은 반드시"💰 퇴직연금 종합리포트"라고 생성해주세요.
     
     [요구사항]
     1) 종목별 핵심 뉴스와 가격 영향 경로를 비교 정리(긍/부정, 단기/중기)
@@ -430,7 +430,9 @@ class NewsReportService:
     
     [보유 종목별 요약]
     {parts_joined}
-    
+
+    format:
+    💰 퇴직연금 종합리포트
     """
         print(f'gen_ai {prompt}')
         try:
@@ -440,6 +442,7 @@ class NewsReportService:
                 safety_settings=self._safe_settings())
             text = self._extract_text(resp)
             text = text.replace("<br>", "\n").strip()
+            text = text.replace("format:", "").strip()
             return text if text else "최종 통합 생성에 실패했습니다. 안전필터 또는 토큰 한도에 의해 응답이 비었습니다."
         except Exception as e:
             return f"최종 통합 생성 오류: {e}"
@@ -497,6 +500,7 @@ if __name__ == "__main__":
     print("=" * 80)
     print(">>> 최종 통합 리포트:")
     print(result["final_report"])
+
 
 
 
