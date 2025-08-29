@@ -98,15 +98,15 @@ class NewsReportService:
         
         self._dist_mode: Optional[str] = None
 
-        # 프로세스 전역 클라이언트 + 스레드-로컬 클라이언트
-        # self.qc = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_key)
+        # Qdrant 벡터DB 
+        self.qc = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_key)
         # self.gen_model_name = gen_model_name
         # self.rag_model_name = rag_model_name
 
         # 모델 핸들 준비
         # self._ensure_models()
     
-        # 공유 핸들
+        # 모델 공유 핸들
         self.embed_model = TextEmbeddingModel.from_pretrained(self.embed_model_name)
         self.rag_model   = GenerativeModel(self.rag_model_name)
         self.gen_model   = GenerativeModel(self.gen_model_name)
@@ -490,6 +490,7 @@ if __name__ == "__main__":
     print("=" * 80)
     print(">>> 최종 통합 리포트:")
     print(result["final_report"])
+
 
 
 
