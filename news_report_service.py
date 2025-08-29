@@ -108,7 +108,11 @@ class NewsReportService:
 
         # 모델 핸들 준비
         self._ensure_models()
-
+    
+        # 공유 핸들
+        self._embed_model_shared = TextEmbeddingModel.from_pretrained(self.embed_model_name)
+        self._rag_model_shared   = GenerativeModel(self.rag_model_name)
+        self._gen_model_shared   = GenerativeModel(self.gen_model_name)
         # 필터를 쓰려면 인덱스가 필요 → 한 번 보장
         self._ensure_stock_index()
 
@@ -131,22 +135,27 @@ class NewsReportService:
     def _tl_qc(self) -> QdrantClient:
         if not hasattr(self._thread_local, "qc"):
             self._thread_local.qc = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_key)
-        return self._thread_local.qc
+        return m if m is not None else self._embed_model_shared
 
     @property
     def embed_model(self) -> TextEmbeddingModel:
         self._ensure_models()
+        m = getattr(self._thread_local, "embed_model", None)
         return self._thread_local.embed_model
-
-    @property
-    def gen_model(self) -> GenerativeModel:
-        self._ensure_models()
-        return self._thread_local.gen_model
 
     @property
     def rag_model(self) -> GenerativeModel:
         self._ensure_models()
-        return self._thread_local.rag_model
+        m = getattr(self._thread_local, "rag_model", None)
+        return m if m is not None else self._rag_model_shared
+    
+    @property
+    def gen_model(self) -> GenerativeModel:
+        self._ensure_models()
+        m = getattr(self._thread_local, "gen_model", None)
+        return m if m is not None else self._gen_model_shared
+
+
 
     def _ensure_stock_index(self) -> None:
         """루트 'stock'에 keyword 인덱스 보장(없으면 생성)."""
@@ -284,6 +293,7 @@ class NewsReportService:
     
     # ----------------- Generate -----------------
     def generate(self, question: str, docs: List[Dict[str, Any]], stock: Optional[str] = None) -> str:
+        self._ensure_models()
         if not docs:
             return "관련된 정보를 찾을 수 없습니다."
         def _trunc(s: str, limit=1600):
@@ -365,6 +375,7 @@ class NewsReportService:
         return [r for r in results if r is not None]
 
     def _reduce_across_stocks(self, template , per_stock_results: List[Dict[str, Any]]) -> str:
+        self._ensure_models()
         if not per_stock_results:
             return "종목별 결과가 비어있습니다."
         
@@ -484,6 +495,7 @@ if __name__ == "__main__":
     print("=" * 80)
     print(">>> 최종 통합 리포트:")
     print(result["final_report"])
+
 
 
 
