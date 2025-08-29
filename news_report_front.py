@@ -45,11 +45,40 @@ def get_service() -> Optional[NewsReportService]:
         st.warning(f"서비스 초기화 실패: {e}")
         return None
 
+# ======================
+# 페이지 설정
+# ======================
+st.set_page_config(page_title="Hover Sidebar Demo", layout="wide")
+
+# ======================
+# CSS: 사이드바 hover 시에만 보이도록
+# ======================
+st.markdown(
+    """
+    <style>
+    /* 사이드바 전체를 왼쪽으로 숨김 */
+    [data-testid="stSidebar"] {
+        transform: translateX(-250px);
+        transition: all 0.3s;
+        opacity: 0.2;  /* 살짝만 보이게 */
+    }
+    /* 마우스를 올리면 원위치 */
+    [data-testid="stSidebar"]:hover {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # -----------------------------
 # UI
 # -----------------------------
 st.title("💰 우리연금술사 종합리포트")
 #st.caption("우리 연금술사가 창훈님을 위해 제작한 퇴직연금 종합 리포트에요")
+st.title("Hover Sidebar Demo")
+st.write("👉 왼쪽 가장자리에 마우스를 올리면 사이드바가 나타납니다.")
 
 with st.sidebar:
     st.subheader("실행 설정")
@@ -144,6 +173,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - {meta_line} • score(raw): `{score}` • mode: `{dist_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
