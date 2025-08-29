@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 
 # MCP 도구 임포트 (네가 쓰는 구조 기준)
 from mcp_server import inquery_stock_info   # 일별 시세 조회
-# 필요하면: from mymcp.mcp_server import inquery_stock_history
-# (동일한 파라미터 형태)
+
 
 def _normalize_kis_output(resp, symbol):
     """KIS 일별 응답을 표준 컬럼으로 정리"""
@@ -76,3 +75,4 @@ if __name__ == "__main__":
         print(df.head())
 
         plot_close(df)
+
