@@ -18,6 +18,8 @@ from qdrant_client.models import (
     Filter, FieldCondition, MatchValue, PayloadSchemaType
 )
 from dotenv import load_dotenv
+from datetime import datetime, date, timedelta
+
 
 load_dotenv()
 # Streamlit이 없을 수도 있으니 안전 import
@@ -152,6 +154,8 @@ class NewsReportService:
     #     m = getattr(self._thread_local, "gen_model", None)
     #     return m if m is not None else self._gen_model_shared
 
+    today = datetime.now().strftime("%Y-%m-%d")
+    
     def _ensure_stock_index(self) -> None:
         """루트 'stock'에 keyword 인덱스 보장(없으면 생성)."""
         try:
@@ -416,6 +420,7 @@ class NewsReportService:
     당신은 증권사 리서치센터장입니다.
     아래 각 종목의 부분 답변을 취합하여 **종합 리포트**를 작성하세요.
     종합리포트 작성 시 역할 설명은 필요 없으며, 답변 안에 자기소개는 포함하지 마세요.
+    오늘이 {today}임을 고려하여 리포트를 생성해주세요.
     
     [요구사항]
     1) 종목별 핵심 뉴스와 가격 영향 경로를 비교 정리(긍/부정, 단기/중기)
@@ -496,6 +501,7 @@ if __name__ == "__main__":
     print("=" * 80)
     print(">>> 최종 통합 리포트:")
     print(result["final_report"])
+
 
 
 
