@@ -62,10 +62,10 @@ with st.sidebar:
     run_btn = st.button("🚀 실행", type="primary")
 
 st.divider()
-st.markdown("""
-**필수 Secrets:** `GOOGLE_CLOUD_PROJECT`, `QDRANT_URL`, `QDRANT_API_KEY`  
-(옵션) `GOOGLE_CLOUD_LOCATION`, `COLLECTION_NAME`, `EMBED_MODEL_NAME`, `GENAI_MODEL_NAME`, `EMBED_DIM`, `DEFAULT_TOP_K`, `RERANK_TOP_K`, `[gcp_service_account]`
-""")
+# st.markdown("""
+# **필수 Secrets:** `GOOGLE_CLOUD_PROJECT`, `QDRANT_URL`, `QDRANT_API_KEY`  
+# (옵션) `GOOGLE_CLOUD_LOCATION`, `COLLECTION_NAME`, `EMBED_MODEL_NAME`, `GENAI_MODEL_NAME`, `EMBED_DIM`, `DEFAULT_TOP_K`, `RERANK_TOP_K`, `[gcp_service_account]`
+# """)
 
 if run_btn:
     stocks = _parse_stocks(stocks_text)
@@ -144,6 +144,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - {meta_line} • score(raw): `{score}` • mode: `{dist_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
