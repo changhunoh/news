@@ -1,4 +1,10 @@
 # streamlit_app.py
+import os, sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.resolve()))
+
+from mcp_server import inquery_stock_info  # ← 점(.) 제거
+
 import asyncio, datetime as dt
 import pandas as pd
 import streamlit as st
@@ -74,5 +80,6 @@ if st.button("차트 그리기"):
                     )])
                     fig.update_layout(title=f"{sym} 캔들차트", xaxis_title="날짜", yaxis_title="가격")
                     st.plotly_chart(fig, use_container_width=True)
+
 
 
