@@ -171,7 +171,11 @@ xxhash==3.5.0
 yarl==1.20.1
 yfinance==0.2.65
 
-fastmcp
+# for mcp
+fastmcp>=2.5.1
+mcp>=1.9.1
+pathlib>=1.0.1
+python-dotenv>=1.1.0
 annotated-types==0.7.0
 anyio==4.10.0
 attrs==25.3.0
