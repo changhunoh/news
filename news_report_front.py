@@ -48,7 +48,7 @@ def get_service() -> Optional[NewsReportService]:
 # -----------------------------
 # UI
 # -----------------------------
-st.title("📰 우리 연금술사 • News RAG 간단 테스트")
+st.title("📰 우리 연금술사 연금리포트")
 st.caption("Qdrant + Vertex AI (Gemini/Embedding) 기반 • stock pre-filter → 벡터검색 • 5종목 Map→Reduce")
 
 with st.sidebar:
@@ -144,4 +144,5 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - {meta_line} • score(raw): `{score}` • mode: `{dist_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
