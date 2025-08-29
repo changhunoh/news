@@ -12,7 +12,13 @@ import sys, os, json, asyncio, logging
 from datetime import datetime, timedelta
 import httpx
 from fastmcp import FastMCP
-
+from envs import (
+    logger, DOMAIN, VIRTUAL_DOMAIN, TOKEN_PATH, HASHKEY_PATH,
+    STOCK_PRICE_PATH, STOCK_INFO_PATH, STOCK_HISTORY_PATH, STOCK_ASK_PATH,
+    ORDER_PATH, ORDER_LIST_PATH, ORDER_DETAIL_PATH,
+    OVERSEAS_STOCK_PRICE_PATH, OVERSEAS_ORDER_PATH,
+    CONTENT_TYPE, AUTH_TYPE
+)
 #from .envs import *
 
 
