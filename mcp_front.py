@@ -56,20 +56,38 @@ st.title("📈 멀티 종목 차트")
 symbols_input = st.text_input("종목코드(쉼표로 구분)", "005930,000660,035420")
 col1, col2 = st.columns(2)
 with col1:
-    end = st.date_input("종료일", dt.date.today())
+    end_date = st.date_input("종료일", dt.date.today())
 with col2:
-    start = st.date_input("시작일", dt.date.today() - dt.timedelta(days=90))
+    start_date = st.date_input("시작일", dt.date.today() - dt.timedelta(days=90))
 
 chart_type = st.radio("차트 타입", ["라인(종가)", "캔들(OHLC)"], horizontal=True)
 
+# 버튼 핸들러
 if st.button("차트 그리기"):
     syms = [s.strip() for s in symbols_input.split(",") if s.strip()]
-    start_s = start.strftime("%Y%m%d")
-    end_s = end.strftime("%Y%m%d")
+    # 유효성 체크
+    if not syms:
+        st.error("종목코드를 입력하세요."); st.stop()
+    if start_date > end_date:
+        st.error("시작일이 종료일보다 늦습니다."); st.stop()
+
+    start_s = start_date.strftime("%Y%m%d")
+    end_s = end_date.strftime("%Y%m%d")
+
+def run_async(coro):
+    try:
+        return asyncio.run(coro)
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        try:
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+ 
     with st.spinner("조회 중..."):
-        df = asyncio.run(_fetch(syms, start_s, end_s))
-    if df.empty:
-        st.error("데이터가 없습니다.")
+        df = asyncio.run_async(_fetch(syms, start_s, end_s))  # 아래 3) 참고    
     else:
         if chart_type == "라인(종가)":
             fig = go.Figure()
@@ -88,6 +106,7 @@ if st.button("차트 그리기"):
                     )])
                     fig.update_layout(title=f"{sym} 캔들차트", xaxis_title="날짜", yaxis_title="가격")
                     st.plotly_chart(fig, use_container_width=True)
+
 
 
 
