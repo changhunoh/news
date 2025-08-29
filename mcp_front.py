@@ -3,7 +3,7 @@ import asyncio, datetime as dt
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
-from mymcp.mcp_server import inquery_stock_info
+from mcp_server import inquery_stock_info
 
 st.set_page_config(page_title="멀티 종목 차트", page_icon="📈", layout="centered")
 
@@ -74,3 +74,4 @@ if st.button("차트 그리기"):
                     )])
                     fig.update_layout(title=f"{sym} 캔들차트", xaxis_title="날짜", yaxis_title="가격")
                     st.plotly_chart(fig, use_container_width=True)
+
