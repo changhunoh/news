@@ -5,7 +5,7 @@ import streamlit as st
 
 from news_report_service import NewsReportService
 
-st.set_page_config(page_title="우리 연금술사 • News RAG 테스트", page_icon="📰", layout="centered")
+st.set_page_config(page_title="우리 연금술사 연금리포트", page_icon="📰", layout="centered")
 
 # -----------------------------
 # st.secrets → os.environ 주입
@@ -144,3 +144,4 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - {meta_line} • score(raw): `{score}` • mode: `{dist_mode}`")
             else:
                 st.write("소스 문서 없음")
+
