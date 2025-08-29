@@ -43,7 +43,7 @@ class RAGState(TypedDict):
 
 class NewsReportService:
     """루트 payload 스키마(text/stock/...) 기준. stock pre-filter → 벡터검색."""
-    _thread_local = threading.local()
+    #_thread_local = threading.local()
 
     def __init__(
         self,
@@ -60,7 +60,7 @@ class NewsReportService:
         rerank_top_k: int = 1,
         use_rerank: bool = False,
     ):
-        # ---- GCP & Vertex init ----
+        # ---- GCP & Vertex init (보안 관련 설정) ----
 
         self.project = project or os.getenv("GOOGLE_CLOUD_PROJECT")
         self.location = location or os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
@@ -81,81 +81,76 @@ class NewsReportService:
 
         vertexai.init(project=self.project, location=self.location, credentials=creds)
 
-        # ---- Qdrant ----
+        # ---- Qdrant (백터 DB 설정) ----
         self.qdrant_url = qdrant_url or os.getenv("QDRANT_URL")
         self.qdrant_key = qdrant_key or os.getenv("QDRANT_API_KEY")
         if not (self.qdrant_url and self.qdrant_key):
             raise RuntimeError("QDRANT_URL / QDRANT_API_KEY required")
-
+        # ---- Model Config  ----
         self.collection = collection or os.getenv("COLLECTION_NAME", "stock_news")
         self.embed_model_name = embed_model_name or os.getenv("EMBED_MODEL_NAME", "gemini-embedding-001")
         self.gen_model_name = gen_model_name or os.getenv("GENAI_MODEL_NAME", "gemini-2.5-pro")
-        self.rag_model_name = rag_model_name or os.getenv("RAG_MODEL_NAME",'gemini-1.5-pro')
+        self.rag_model_name = rag_model_name or os.getenv("RAG_MODEL_NAME",'gemini-2.5-flash-lite')
         self.embed_dim = int(embed_dim or int(os.getenv("EMBED_DIM", "3072")))
         self.top_k = int(top_k or int(os.getenv("DEFAULT_TOP_K", "1")))
         self.rerank_top_k = int(rerank_top_k or int(os.getenv("RERANK_TOP_K", "1")))
         self.use_rerank = use_rerank
-        print(gen_model_name)
-        print(rag_model_name)
-
+        
         self._dist_mode: Optional[str] = None
 
         # 프로세스 전역 클라이언트 + 스레드-로컬 클라이언트
-        self.qc = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_key)
-
-        self.gen_model_name = gen_model_name
-        self.rag_model_name = rag_model_name
+        # self.qc = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_key)
+        # self.gen_model_name = gen_model_name
+        # self.rag_model_name = rag_model_name
 
         # 모델 핸들 준비
-        self._ensure_models()
+        # self._ensure_models()
     
         # 공유 핸들
-        self._embed_model_shared = TextEmbeddingModel.from_pretrained(self.embed_model_name)
-        self._rag_model_shared   = GenerativeModel(self.rag_model_name)
-        self._gen_model_shared   = GenerativeModel(self.gen_model_name)
+        self._embed_model = TextEmbeddingModel.from_pretrained(self.embed_model_name)
+        self._rag_model   = GenerativeModel(self.rag_model_name)
+        self._gen_model   = GenerativeModel(self.gen_model_name)
         # 필터를 쓰려면 인덱스가 필요 → 한 번 보장
-        self._ensure_stock_index()
+        #self._ensure_stock_index()
 
     # ----------------- 내부 유틸 -----------------
-    def _ensure_models(self):
-        if (not hasattr(self._thread_local, "embed_model")
-            or getattr(self._thread_local, "embed_name", None) != self.embed_model_name):
-            self._thread_local.embed_model = TextEmbeddingModel.from_pretrained(self.embed_model_name)
-            self._thread_local.embed_name = self.embed_model_name
+    # def _ensure_models(self):
+    #     if (not hasattr(self._thread_local, "embed_model")
+    #         or getattr(self._thread_local, "embed_name", None) != self.embed_model_name):
+    #         self._thread_local.embed_model = TextEmbeddingModel.from_pretrained(self.embed_model_name)
+    #         self._thread_local.embed_name = self.embed_model_name
 
-        if not hasattr(self._thread_local, "rag_model") or getattr(self._thread_local, "rag_model_name", None) != self.rag_model_name:
-            self._thread_local.rag_model = GenerativeModel(self.rag_model_name)
-            self._thread_local.rag_model_name = self.rag_model_name
+    #     if not hasattr(self._thread_local, "rag_model") or getattr(self._thread_local, "rag_model_name", None) != self.rag_model_name:
+    #         self._thread_local.rag_model = GenerativeModel(self.rag_model_name)
+    #         self._thread_local.rag_model_name = self.rag_model_name
 
-        if (not hasattr(self._thread_local, "gen_model")
-            or getattr(self._thread_local, "gen_name", None) != self.gen_model_name):
-            self._thread_local.gen_model = GenerativeModel(self.gen_model_name)
-            self._thread_local.gen_name = self.gen_model_name
+    #     if (not hasattr(self._thread_local, "gen_model")
+    #         or getattr(self._thread_local, "gen_name", None) != self.gen_model_name):
+    #         self._thread_local.gen_model = GenerativeModel(self.gen_model_name)
+    #         self._thread_local.gen_name = self.gen_model_name
 
-    def _tl_qc(self) -> QdrantClient:
-        if not hasattr(self._thread_local, "qc"):
-            self._thread_local.qc = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_key)
-        return m if m is not None else self._embed_model_shared
+    # def _tl_qc(self) -> QdrantClient:
+    #     if not hasattr(self._thread_local, "qc"):
+    #         self._thread_local.qc = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_key)
+    #     return m if m is not None else self._embed_model_shared
 
-    @property
-    def embed_model(self) -> TextEmbeddingModel:
-        self._ensure_models()
-        m = getattr(self._thread_local, "embed_model", None)
-        return self._thread_local.embed_model
+    # @property
+    # def embed_model(self) -> TextEmbeddingModel:
+    #     self._ensure_models()
+    #     m = getattr(self._thread_local, "embed_model", None)
+    #     return self._thread_local.embed_model
 
-    @property
-    def rag_model(self) -> GenerativeModel:
-        self._ensure_models()
-        m = getattr(self._thread_local, "rag_model", None)
-        return m if m is not None else self._rag_model_shared
+    # @property
+    # def rag_model(self) -> GenerativeModel:
+    #     self._ensure_models()
+    #     m = getattr(self._thread_local, "rag_model", None)
+    #     return m if m is not None else self._rag_model_shared
     
-    @property
-    def gen_model(self) -> GenerativeModel:
-        self._ensure_models()
-        m = getattr(self._thread_local, "gen_model", None)
-        return m if m is not None else self._gen_model_shared
-
-
+    # @property
+    # def gen_model(self) -> GenerativeModel:
+    #     self._ensure_models()
+    #     m = getattr(self._thread_local, "gen_model", None)
+    #     return m if m is not None else self._gen_model_shared
 
     def _ensure_stock_index(self) -> None:
         """루트 'stock'에 keyword 인덱스 보장(없으면 생성)."""
@@ -213,7 +208,7 @@ class NewsReportService:
             # 인덱스 이슈 등 → 한 번 더 인덱스 보장 후 재시도
             if stock and ("Index required" in str(e) or "Bad request" in str(e)):
                 self._ensure_stock_index()
-                hits = self._tl_qc().search(
+                hits = self.qc.search(
                     collection_name=self.collection,
                     query_vector=qv,
                     limit=want,
@@ -227,7 +222,7 @@ class NewsReportService:
         # distance 모드 캐시
         if self._dist_mode is None:
             try:
-                info = self._tl_qc().get_collection(self.collection)
+                info = self.qc.get_collection(self.collection)
                 params = getattr(info.config, "params", None) or getattr(info, "config", None)
                 vectors = getattr(params, "vectors", None)
                 self._dist_mode = str(getattr(vectors, "distance", "")).lower() if vectors else ""
@@ -291,7 +286,7 @@ class NewsReportService:
         except Exception:
             return ""
     
-    # ----------------- Generate -----------------
+    # ----------------- Generate (Rag 기능 수행) -----------------
     def generate(self, question: str, docs: List[Dict[str, Any]], stock: Optional[str] = None) -> str:
         self._ensure_models()
         if not docs:
@@ -320,7 +315,7 @@ class NewsReportService:
 {question}
 """
         try:
-            # rag_model (1.5 pro) 사용
+            # rag_model (2.5 flahs light) 사용
             resp = self.rag_model.generate_content(
                 prompt,
                 generation_config=self._gen_config(temperature=0.0),
@@ -495,6 +490,7 @@ if __name__ == "__main__":
     print("=" * 80)
     print(">>> 최종 통합 리포트:")
     print(result["final_report"])
+
 
 
 
