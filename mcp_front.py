@@ -9,7 +9,7 @@ import streamlit as st
 for k, v in st.secrets.items():
     os.environ.setdefault(k, str(v))
 
-from mcp_server import inquery_stock_info  # ← 점(.) 제거
+from .mcp_server import inquery_stock_info  # ← 점(.) 제거
 
 import asyncio, datetime as dt
 import pandas as pd
@@ -86,6 +86,7 @@ if st.button("차트 그리기"):
                     )])
                     fig.update_layout(title=f"{sym} 캔들차트", xaxis_title="날짜", yaxis_title="가격")
                     st.plotly_chart(fig, use_container_width=True)
+
 
 
 
