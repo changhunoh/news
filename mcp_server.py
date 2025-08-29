@@ -5,9 +5,10 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 import httpx
-from mcp.server.fastmcp.server import FastMCP
+#from mcp.server.fastmcp.server import FastMCP
+from fastmcp import FastMCP
 
-from .envs import *
+#from .envs import *
 
 
 # Create MCP instance
