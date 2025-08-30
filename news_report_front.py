@@ -120,7 +120,7 @@ if run_btn:
             except Exception:
                 pass
 
-    with st.spinner("분석 중..."):
+    with st.spinner("리포트를 생성하는중..."):
         try:
             base_template = (template or None)
             result = svc.answer_5_stocks_and_reduce(
@@ -171,6 +171,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - {meta_line} • score(raw): `{score}` • mode: `{dist_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
