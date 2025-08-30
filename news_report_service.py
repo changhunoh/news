@@ -457,7 +457,7 @@ class NewsReportService:
         per_stock = self.answer_multi_stocks(stocks, template=template, max_workers=max_workers)
         final = self._reduce_across_stocks(template, per_stock)
 
-        mailing.send_mail("am.woojin@gmail.com", final)
+        #mailing.send_mail("am.woojin@gmail.com", final)
 
         return {
             "base_template": template,
