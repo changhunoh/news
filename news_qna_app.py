@@ -296,7 +296,7 @@ if "messages" not in st.session_state:
 
 💡 예시 질문:
 • 삼성전자 주가 전망이 어떻게 되나요?
-• 최근 AI 관련 뉴스는 어떤 것들이 있나요?
+• 최근 AI 관련 종목은 어떤 것들이 있나요?
 • 반도체 시장 동향에 대해 알려주세요
 • 특정 기업의 실적 발표 내용을 요약해주세요""",
         "ts": fmt_ts(datetime.now(TZ))
@@ -370,23 +370,6 @@ st.markdown('</div>', unsafe_allow_html=True)
 # 입력창
 col1, col2 = st.columns([1, 0.15])
 
-# with col1:
-#     user_q = st.text_input(
-#         "질문을 입력하세요...",
-#         key=f"user_input_{st.session_state.get('input_key', 0)}",
-#         label_visibility="collapsed",
-#         placeholder="예) 삼성전자 전망 알려줘"
-#     )
-
-# with col2:
-#     clicked = st.button(
-#         "➤",
-#         key="send_button",
-#         use_container_width=True,
-#         disabled=st.session_state.get("is_generating", False)
-#     )
-
-
 with col1:
     user_q = st.text_input(
         "질문을 입력하세요...",
@@ -403,14 +386,31 @@ with col2:
         disabled=st.session_state.get("is_generating", False)
     )
 
-if clicked and user_q:
-    # 사용자 메시지 표시
-    st.chat_message("user").write(user_q)
 
-    # 어시스턴트 메시지 + 스트리밍 출력
-    assistant_box = st.chat_message("assistant")
-    stream = service.answer_stream(user_q)   # ← 제너레이터 호출
-    assistant_box.write_stream(stream)       # ← 스트리밍 출력
+# with col1:
+#     user_q = st.text_input(
+#         "질문을 입력하세요...",
+#         key=f"user_input_{st.session_state.get('input_key', 0)}",
+#         label_visibility="collapsed",
+#         placeholder="예) 삼성전자 전망 알려줘"
+#     )
+
+# with col2:
+#     clicked = st.button(
+#         "➤",
+#         key="send_button",
+#         use_container_width=True,
+#         disabled=st.session_state.get("is_generating", False)
+#     )
+
+# if clicked and user_q:
+#     # 사용자 메시지 표시
+#     st.chat_message("user").write(user_q)
+
+#     # 어시스턴트 메시지 + 스트리밍 출력
+#     assistant_box = st.chat_message("assistant")
+#     stream = service.answer_stream(user_q)   # ← 제너레이터 호출
+#     assistant_box.write_stream(stream)       # ← 스트리밍 출력
 
 st.markdown('</div>', unsafe_allow_html=True)
 
