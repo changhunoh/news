@@ -415,14 +415,6 @@ with col2:
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-#진단 추가
-
-if st.button("🔍 Qdrant 진단"):
-    if svc and hasattr(svc, "diagnose"):
-        st.json(svc.diagnose())
-    else:
-        st.warning("서비스가 초기화되지 않았습니다.")
-
 # ------------------------
 # 메시지 처리
 # ------------------------
@@ -487,7 +479,7 @@ if st.session_state.get("to_process", False):
                 buf.append(chunk)
                 st.session_state["messages"][pending_idx]["content"] = "".join(buf)
                 render_messages(st.session_state["messages"], messages_ph)
-                time.sleep(0.1)  # 프레임 드랍 방지, 체감 타자 효과
+                time.sleep(0.2)  # 프레임 드랍 방지, 체감 타자 효과
 
             # 3) 스트림 완료 후, 근거 문서 부착(선택)
             try:
