@@ -415,6 +415,12 @@ with col2:
 
 st.markdown('</div>', unsafe_allow_html=True)
 
+if st.button("🔍 Qdrant 진단"):
+    if svc and hasattr(svc, "diagnose"):
+        st.json(svc.diagnose())
+    else:
+        st.warning("서비스가 초기화되지 않았습니다.")
+
 # ------------------------
 # 메시지 처리
 # ------------------------
