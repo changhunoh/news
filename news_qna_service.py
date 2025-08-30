@@ -8,6 +8,9 @@ from google.oauth2 import service_account
 from collections.abc import Generator
 from vertexai.generative_models import Candidate
 import streamlit as st  # Streamlit secrets 사용 시
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class RAGState(TypedDict):
@@ -167,23 +170,25 @@ class NewsQnAService:
         # 지금은 그대로 top_k 상위만 리턴
         return (docs or [])[: self.top_k]
 
+ # 5. 모호하거나 근거 없는 내용은 쓰지 말고 "관련된 정보를 찾을 수 없습니다."라고 답하세요.
     def generate(self, question: str, docs: List[Dict[str, Any]]) -> str:
         if not docs:
             return "관련된 정보를 찾을 수 없습니다."
         ctx = "\n\n".join(d["content"] for d in docs)
         prompt = f"""
-      당신은 주식시장과 연금에 정통한 전문 애널리스트입니다.  
-      아래 컨텍스트를 근거로 사용자의 질문 의도에 맞는 한국어 답변을 충실하게 작성하세요.
+      당신은 주식시장과 연금에 정통한 전문 애널리스트입니다. 
+      당신에게 주식 종목과 관련된 뉴스기사가 제공됩니다. 
+      아래 뉴스기사를 근거로 사용자의 질문 의도에 맞는 한국어 답변을 충실하게 작성하세요.
       답변을 작성 시 아래 지침을 반드시 지켜주세요.
       
         [작성 지침]  
         1. 답변은 **3단락 이상**으로 구성하세요.  
         2. **중요 포인트는 굵게**, 핵심 수치는 `코드블록 스타일`로 표시하세요.  
         3. 답변 중간에는 ▸, ✔, ✦ 같은 불릿 아이콘을 활용해 시각적으로 보기 좋게 정리하세요.  
-        4. 마지막에 `---` 구분선을 넣고, 근거 기사 한 줄 요약을 첨부하세요.  
-        5. 모호하거나 근거 없는 내용은 쓰지 말고 "관련된 정보를 찾을 수 없습니다."라고 답하세요.
+        4. 마지막에 `---` 구분선을 넣고, 근거 기사 한 줄 요약을 첨부하세요.
         
-        [컨텍스트]
+        
+        [뉴스기사]
         {ctx}
         
         [질문]
@@ -203,16 +208,15 @@ class NewsQnAService:
 
         ctx = "\n\n".join(d["content"] for d in docs)
         prompt = f"""
-      당신은 주식시장과 연금에 정통한 전문 애널리스트입니다.  
-      아래 컨텍스트를 근거로 사용자의 질문 의도에 맞는 한국어 답변을 충실하게 작성하세요.
-      답변을 작성 시 아래 지침을 반드시 지켜주세요.
+      당신은 주식시장과 연금에 정통한 전문 애널리스트입니다.
+      당신에게 주식 종목과 관련된 뉴스기사가 제공됩니다. 
+      아래 뉴스기사를 근거로 사용자의 질문 의도에 맞는 한국어 답변을 충실하게 작성하세요.
       
-        [작성 지침]  
-        1. 답변은 **3단락 이상**으로 구성하세요.  
-        2. **중요 포인트는 굵게**, 핵심 수치는 `코드블록 스타일`로 표시하세요.  
-        3. 답변 중간에는 ▸, ✔, ✦ 같은 불릿 아이콘을 활용해 시각적으로 보기 좋게 정리하세요.  
-        4. 마지막에 `---` 구분선을 넣고, 근거 기사 한 줄 요약을 첨부하세요.  
-        5. 모호하거나 근거 없는 내용은 쓰지 말고 "관련된 정보를 찾을 수 없습니다."라고 답하세요.
+    [작성 지침]  
+    1. 답변은 **3단락 이상**으로 구성하세요.  
+    2. **중요 포인트는 굵게**, 핵심 수치는 `코드블록 스타일`로 표시하세요.  
+    3. 답변 중간에는 ▸, ✔, ✦ 같은 불릿 아이콘을 활용해 시각적으로 보기 좋게 정리하세요.  
+    4. 마지막에 `---` 구분선을 넣고, 근거 기사 한 줄 요약을 첨부하세요.  
 
         [컨텍스트]
         {ctx}
@@ -262,7 +266,6 @@ class NewsQnAService:
         docs = self.rerank(question, docs) if self.use_rerank else docs[: self.top_k]
         return self.generate_stream(question, docs)
     
-
     def retrieve_only(self, question: str, top_k: int | None = None) -> List[Dict[str, Any]]:
         prev_top_k, self.top_k = self.top_k, (top_k or self.top_k)
         try:
@@ -271,59 +274,22 @@ class NewsQnAService:
         finally:
             self.top_k = prev_top_k
 
-    # ---------- 진단함수 ----------
-    def diagnose(self) -> Dict[str, Any]:
-        info: Dict[str, Any] = {}
-    
-        # 1) 컬렉션/벡터 구성
-        try:
-            col = self.qc.get_collection(self.collection)
-            cfg = getattr(col, "config", None) or col
-            vectors = getattr(cfg, "vectors", None)
-            if hasattr(vectors, "size"):
-                info["vector_size"] = vectors.size
-                info["distance"] = str(getattr(vectors, "distance", ""))
-                info["named_vectors"] = None
-            elif isinstance(vectors, dict):
-                info["named_vectors"] = {k: {"size": v.size, "distance": str(v.distance)} for k, v in vectors.items()}
-            else:
-                info["vectors_raw"] = str(vectors)
-        except Exception as e:
-            info["collection_error"] = f"{e}"
-    
-        # 2) 포인트 존재여부 + payload 키 미리보기
-        try:
-            scrolled = self.qc.scroll(
-                collection_name=self.collection,
-                limit=1,
-                with_payload=True,
-                with_vectors=False,
-            )
-            pts = getattr(scrolled, "points", None)
-            if pts and len(pts) > 0:
-                p = pts[0]
-                payload = p.payload or {}
-                info["has_points"] = True
-                info["sample_payload_keys"] = list(payload.keys())
-                # 본문 후보 키 몇 개 미리보기
-                preview_keys = [k for k in ("doc", "page_content", "content", "text") if k in payload]
-                preview = {}
-                for k in preview_keys[:3]:
-                    v = payload.get(k)
-                    preview[k] = (v[:80] + "...") if isinstance(v, str) and len(v) > 80 else v
-                info["payload_preview"] = preview
-            else:
-                info["has_points"] = False
-        except Exception as e:
-            info["scroll_error"] = f"{e}"
-    
-        # 3) 쿼리 임베딩 차원
-        info["embed_dim_config"] = self.embed_dim
-    
-        # 4) 환경 변수/엔드포인트
-        info["qdrant_url"] = self.qdrant_url
-        info["collection"] = self.collection
-        info["vector_name"] = getattr(self, "vector_name", None)
-    
-        return info
+"""
 
+if __name__  == "__main__":
+    newsqa = NewsQnAService()
+    doc_res = newsqa.retrieve_only("삼성전자 주가 전망은?")
+    
+    print("문서검색 결과")
+    print(doc_res)
+    print("---")
+    
+    print("정답 결과")
+    result_stream = newsqa.answer_stream("삼성전자 주가 전망은?")
+    
+    # 제너레이터 객체를 반복하여 텍스트 청크를 순서대로 출력
+    for chunk in result_stream:
+        print(chunk, end="") # end=""를 사용해 줄바꿈 없이 이어붙임
+    print() # 마지막에 줄바꿈 추가
+
+"""
