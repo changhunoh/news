@@ -407,6 +407,7 @@ class NewsReportService:
         prompt = f"""
     당신은 증권사 리서치센터장입니다.
     아래 각 종목의 부분 답변을 취합하여 **종합 리포트**를 작성하세요.
+    종합리포트 작성 시 역할 설명은 필요 없으며, 답변 안에 자기소개는 포함하지 마세요.
     
     [요구사항]
     1) 종목별 핵심 뉴스와 가격 영향 경로를 비교 정리(긍/부정, 단기/중기)
@@ -415,8 +416,11 @@ class NewsReportService:
     4) 결론: 포트폴리오 관점 제언(오버웨이트/뉴트럴/언더웨이트 등 사용 가능)
     5) 수치는 `백틱`으로, 핵심 포인트는 **굵게**, 불릿 적절 활용
     6) 모호하면 '관련된 정보를 찾을 수 없습니다.'라고 분명히 표기
+    7) 줄바꿈은 '<br>' 같은 HTML 태그 대신 실제 줄바꿈(엔터, 개행)으로 표시할 것
+    8) 중요 포인트 앞에는 📌, 긍정 요인에는 📈, 리스크 요인에는 ⚠️ 같은 이모지를 붙이세요.
+    9) 리포트 생성 시 표 형식은 사용하지 말 것
     
-    [종목별 부분답 모음]
+    [보유 종목별 요약]
     {parts_joined}
     
     """
@@ -436,7 +440,7 @@ class NewsReportService:
         per_stock = self.answer_multi_stocks(stocks, template=template, max_workers=max_workers)
         final = self._reduce_across_stocks(template, per_stock)
         with open('report_sample.txt','w', encoding = 'utf-8-sig') as f:
-            f.write(result)
+            f.write(final)
         return {
             "base_template": template,
             "stocks": stocks,
@@ -457,6 +461,62 @@ class NewsReportService:
         except Exception:
             return 0
 
+def _diagnose_env_and_connectivity(svc: "NewsReportService"):
+    print("\n[DIAG] ===== RAG 환경 진단 시작 =====")
+    # 1) 핵심 환경변수
+    need_env = ["GOOGLE_CLOUD_PROJECT", "QDRANT_URL", "QDRANT_API_KEY"]
+    for k in need_env:
+        v = os.getenv(k)
+        print(f"[DIAG] ENV {k} = {'<SET>' if v else '<MISSING>'}")
+
+    # 2) 패키지/버전
+    import sys
+    print(f"[DIAG] Python: {sys.version}")
+    try:
+        import vertexai
+        import google.cloud.aiplatform as aiplatform
+        print(f"[DIAG] vertexai: {getattr(vertexai, '__version__', 'unknown')}")
+        print(f"[DIAG] google-cloud-aiplatform: {getattr(aiplatform, '__version__', 'unknown')}")
+    except Exception as e:
+        print(f"[DIAG] vertexai/aiplatform import 실패: {e}")
+
+    # 3) Vertex AI 모델 테스트 (임베딩 1회)
+    try:
+        test_vec = svc._embed_query("diagnostic ping")
+        print(f"[DIAG] Embedding OK. dim={len(test_vec)} (expect {svc.embed_dim})")
+        if len(test_vec) != svc.embed_dim:
+            print("[DIAG][WARN] 임베딩 차원이 embed_dim과 불일치. SDK/모델/설정 확인 필요.")
+    except Exception as e:
+        print(f"[DIAG][FAIL] Embedding 오류: {e}")
+
+    # 4) Qdrant 연결/콜렉션/카운트
+    try:
+        info = svc.qc.get_collection(svc.collection)
+        print(f"[DIAG] Qdrant collection OK: {svc.collection}")
+        try:
+            cnt = svc.count_by_stock("진단용")  # 없는 값으로 카운트 시도해도 호출만 되면 OK
+            print(f"[DIAG] Qdrant count call OK (dummy stock). returned={cnt}")
+        except Exception as e2:
+            print(f"[DIAG][WARN] count_by_stock 오류: {e2}")
+    except Exception as e:
+        print(f"[DIAG][FAIL] Qdrant에 접근 불가 또는 collection 없음: {e}")
+
+    # 5) RAG/GEN 모델 generate 테스트(짧은 프롬프트)
+    try:
+        resp = svc.rag_model.generate_content("짧은 테스트 문장입니다.")
+        txt = svc._extract_text(resp)
+        print(f"[DIAG] rag_model generate OK: {bool(txt)}")
+    except Exception as e:
+        print(f"[DIAG][FAIL] rag_model generate 실패: {e}")
+
+    try:
+        resp = svc.gen_model.generate_content("짧은 테스트 문장입니다.")
+        txt = svc._extract_text(resp)
+        print(f"[DIAG] gen_model generate OK: {bool(txt)}")
+    except Exception as e:
+        print(f"[DIAG][FAIL] gen_model generate 실패: {e}")
+
+    print("[DIAG] ===== RAG 환경 진단 종료 =====\n")
 
 if __name__ == "__main__":
     # ✅ 환경변수 필요: GOOGLE_CLOUD_PROJECT, QDRANT_URL, QDRANT_API_KEY
@@ -467,6 +527,8 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"[Init Error] 서비스 초기화 실패: {e}")
         exit(1)
+    
+    _diagnose_env_and_connectivity(service)  # ✅ 추가
 
     # 테스트용 종목 (원하는 티커/심볼로 교체 가능)
     test_stocks = ["삼성전자", "현대차", "카카오", "네이버", "LG에너지솔루션"]
