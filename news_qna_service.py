@@ -270,3 +270,60 @@ class NewsQnAService:
             return docs[: (top_k or self.top_k)]
         finally:
             self.top_k = prev_top_k
+
+    # ---------- 진단함수 ----------
+    def diagnose(self) -> Dict[str, Any]:
+        info: Dict[str, Any] = {}
+    
+        # 1) 컬렉션/벡터 구성
+        try:
+            col = self.qc.get_collection(self.collection)
+            cfg = getattr(col, "config", None) or col
+            vectors = getattr(cfg, "vectors", None)
+            if hasattr(vectors, "size"):
+                info["vector_size"] = vectors.size
+                info["distance"] = str(getattr(vectors, "distance", ""))
+                info["named_vectors"] = None
+            elif isinstance(vectors, dict):
+                info["named_vectors"] = {k: {"size": v.size, "distance": str(v.distance)} for k, v in vectors.items()}
+            else:
+                info["vectors_raw"] = str(vectors)
+        except Exception as e:
+            info["collection_error"] = f"{e}"
+    
+        # 2) 포인트 존재여부 + payload 키 미리보기
+        try:
+            scrolled = self.qc.scroll(
+                collection_name=self.collection,
+                limit=1,
+                with_payload=True,
+                with_vectors=False,
+            )
+            pts = getattr(scrolled, "points", None)
+            if pts and len(pts) > 0:
+                p = pts[0]
+                payload = p.payload or {}
+                info["has_points"] = True
+                info["sample_payload_keys"] = list(payload.keys())
+                # 본문 후보 키 몇 개 미리보기
+                preview_keys = [k for k in ("doc", "page_content", "content", "text") if k in payload]
+                preview = {}
+                for k in preview_keys[:3]:
+                    v = payload.get(k)
+                    preview[k] = (v[:80] + "...") if isinstance(v, str) and len(v) > 80 else v
+                info["payload_preview"] = preview
+            else:
+                info["has_points"] = False
+        except Exception as e:
+            info["scroll_error"] = f"{e}"
+    
+        # 3) 쿼리 임베딩 차원
+        info["embed_dim_config"] = self.embed_dim
+    
+        # 4) 환경 변수/엔드포인트
+        info["qdrant_url"] = self.qdrant_url
+        info["collection"] = self.collection
+        info["vector_name"] = getattr(self, "vector_name", None)
+    
+        return info
+
