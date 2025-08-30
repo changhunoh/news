@@ -2,6 +2,7 @@
 import smtplib
 import requests
 import json
+import markdown
 
 # 개인 정보 입력(email, 앱 비밀번호)
 my_email = "wj.jang.wooriib@gmail.com"
@@ -20,6 +21,8 @@ def send_mail(mail_addr: str, content: str):
 
     # 본문을 UTF-8로 지정
     msg.set_content(content, subtype="plain", charset="utf-8")
+    html_content = markdown.markdown(content)
+    msg.add_alternative(html_content, subtype="html")
 
     with smtplib.SMTP("smtp.gmail.com", 587) as s:
         s.starttls()
@@ -163,6 +166,7 @@ if __name__ == "__main__":
 *   **카카오 (Underweight / 비중축소)**
     신사업에 대한 기대감은 유효하나, **가시적인 성과가 나오기까지 상당한 시간이 필요하며 규제 리스크가 큽니다.** 현재의 매크로 환경에서는 단기 실적 가시성이 높은 종목에 집중하는 것이 유리하므로, 비중 축소를 고려할 수 있습니다.
     """
+    mail_msg = markdown.markdown(mail_msg)
     send_mail(mail_addr, mail_msg)
     print("finish to send email!")
 

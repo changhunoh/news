@@ -459,10 +459,9 @@ class NewsReportService:
         template = template or "{stock} 관련해서 종목의 가격에 중요한 뉴스는?"
         per_stock = self.answer_multi_stocks(stocks, template=template, max_workers=max_workers)
         final = self._reduce_across_stocks(template, per_stock)
-        mail_final = markdown.markdown(final)
-        #mailing.send_mail("am.woojin@gmail.com", final)
+
         #html 테스트
-        mailing.send_mail("fanxy0730@gmail.com", mail_final)
+        mailing.send_mail("fanxy0730@gmail.com", final)
 
         return {
             "base_template": template,
