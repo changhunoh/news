@@ -19,6 +19,8 @@ from qdrant_client.models import (
 )
 from dotenv import load_dotenv
 
+import mailing
+
 load_dotenv()
 # Streamlit이 없을 수도 있으니 안전 import
 try:
@@ -439,6 +441,9 @@ class NewsReportService:
         template = template or "{stock} 관련해서 종목의 가격에 중요한 뉴스는?"
         per_stock = self.answer_multi_stocks(stocks, template=template, max_workers=max_workers)
         final = self._reduce_across_stocks(template, per_stock)
+
+        mailing.send_mail("am.woojin@gmail.com", final)
+
         with open('report_sample.txt','w', encoding = 'utf-8-sig') as f:
             f.write(final)
         return {
