@@ -481,6 +481,7 @@ class NewsReportService:
         except Exception:
             return 0
 
+"""
 
 if __name__ == "__main__":
     # ✅ 환경변수 필요: GOOGLE_CLOUD_PROJECT, QDRANT_URL, QDRANT_API_KEY
@@ -510,6 +511,8 @@ if __name__ == "__main__":
     print("=" * 80)
     print(">>> 최종 통합 리포트:")
     print(result["final_report"])
+
+"""
 
 
 
