@@ -435,90 +435,83 @@ if clicked and final_q and not st.session_state.get("is_generating", False):
     st.rerun()
     
 # stream 효과 구현 용도 제거
-if st.session_state.get("to_process", False):
-    final_q = st.session_state.get("queued_q", "")
-    pending_idx = st.session_state.get("pending_idx")
-    sources, ans, result = [], "관련 정보를 찾을 수 없습니다.", {}
-    try:
-        if svc:
-            result = svc.answer(final_q) or {}
-            ans = (
-                result.get("answer") or result.get("output_text") or
-                result.get("output") or result.get("content") or ""
-            ).strip() or ans
-            sources = (
-                result.get("source_documents") or
-                result.get("sources") or
-                result.get("docs") or []
-            )
-        else:
-            ans = f"데모 응답: '{final_q}'에 대한 분석 결과는 준비 중입니다."
-    except Exception as e:
-        ans = f"오류 발생: {e}"
-
-# 스트리밍 함수 추가
 # if st.session_state.get("to_process", False):
 #     final_q = st.session_state.get("queued_q", "")
 #     pending_idx = st.session_state.get("pending_idx")
-#     sources = []
+#     sources, ans, result = [], "관련 정보를 찾을 수 없습니다.", {}
 #     try:
-#         # 서비스가 있으면 스트리밍 사용
-#         if svc and hasattr(svc, "answer_stream"):
-#             # 타이핑 버블 → 스트리밍 텍스트로 전환
-#             st.session_state["messages"][pending_idx]["pending"] = False
-#             st.session_state["messages"][pending_idx]["content"] = ""
-#             st.session_state["messages"][pending_idx]["ts"] = fmt_ts(datetime.now(TZ))
-
-#             # 화면 갱신용 placeholder는 이미 messages_ph가 있으니 그대로 사용
-#             stream = svc.answer_stream(final_q)
-
-#             full = []
-#             for chunk in stream:
-#                 if not isinstance(chunk, str):
-#                     continue
-#                 full.append(chunk)
-#                 # 누적 텍스트 갱신
-#                 st.session_state["messages"][pending_idx]["content"] = "".join(full)
-#                 # 매 청크마다 렌더링 업데이트
-#                 render_messages(st.session_state["messages"], messages_ph)
-#                 # 살짝 양보 (UI 버벅임 방지)
-#                 time.sleep(0.1)
-
-#             # 스트림 종료 후 근거 문서(소스)도 붙여주기
-#             try:
-#                 if hasattr(svc, "retrieve_only"):
-#                     sources = svc.retrieve_only(final_q, top_k=5) or []
-#             except Exception:
-#                 sources = []
-
-#             st.session_state["messages"][pending_idx]["sources"] = sources
-#             st.session_state["messages"][pending_idx]["ts"] = fmt_ts(datetime.now(TZ))
-
+#         if svc:
+#             result = svc.answer(final_q) or {}
+#             ans = (
+#                 result.get("answer") or result.get("output_text") or
+#                 result.get("output") or result.get("content") or ""
+#             ).strip() or ans
+#             sources = (
+#                 result.get("source_documents") or
+#                 result.get("sources") or
+#                 result.get("docs") or []
+#             )
 #         else:
-#             # 서비스가 없으면 데모 응답
 #             ans = f"데모 응답: '{final_q}'에 대한 분석 결과는 준비 중입니다."
-#             st.session_state["messages"][pending_idx] = {
-#                 "role": "assistant",
-#                 "content": ans,
-#                 "sources": [],
-#                 "ts": fmt_ts(datetime.now(TZ))
-#             }
-
 #     except Exception as e:
-#         st.session_state["messages"][pending_idx] = {
-#             "role": "assistant",
-#             "content": f"오류 발생: {e}",
-#             "sources": [],
-#             "ts": fmt_ts(datetime.now(TZ))
-#         }
+#         ans = f"오류 발생: {e}"
 
-    # 상태 초기화 및 리렌더
+# 스트리밍 함수 추가
+if st.session_state.get("to_process", False):
+    final_q = st.session_state.get("queued_q", "")
+    pending_idx = st.session_state.get("pending_idx")
+    sources = []
+
+    try:
+        if svc and hasattr(svc, "answer_stream"):
+            # 1) 타이핑 버블을 실제 스트림 메시지로 전환
+            st.session_state["messages"][pending_idx]["pending"] = False
+            st.session_state["messages"][pending_idx]["content"] = ""
+            st.session_state["messages"][pending_idx]["ts"] = fmt_ts(datetime.now(TZ))
+            render_messages(st.session_state["messages"], messages_ph)
+
+            # 2) 백엔드 스트림 소비
+            stream = svc.answer_stream(final_q)  # ← 핵심: 스트림 제너레이터 받기
+            buf = []
+            for chunk in stream:                 # ← 핵심: 제너레이터를 for로 '소비'
+                if not isinstance(chunk, str):
+                    continue
+                buf.append(chunk)
+                st.session_state["messages"][pending_idx]["content"] = "".join(buf)
+                render_messages(st.session_state["messages"], messages_ph)
+                time.sleep(0.02)  # 프레임 드랍 방지, 체감 타자 효과
+
+            # 3) 스트림 완료 후, 근거 문서 부착(선택)
+            try:
+                if hasattr(svc, "retrieve_only"):
+                    sources = svc.retrieve_only(final_q, top_k=5) or []
+            except Exception:
+                sources = []
+            st.session_state["messages"][pending_idx]["sources"] = sources
+            st.session_state["messages"][pending_idx]["ts"] = fmt_ts(datetime.now(TZ))
+
+        else:
+            # 스트리밍 미지원/서비스 없음: 폴백
+            ans = f"데모 응답: '{final_q}'에 대한 분석 결과는 준비 중입니다."
+            st.session_state["messages"][pending_idx] = {
+                "role": "assistant", "content": ans, "sources": [],
+                "ts": fmt_ts(datetime.now(TZ))
+            }
+
+    except Exception as e:
+        st.session_state["messages"][pending_idx] = {
+            "role": "assistant", "content": f"오류 발생: {e}", "sources": [],
+            "ts": fmt_ts(datetime.now(TZ))
+        }
+
+    # 4) 상태 정리 및 최종 리렌더
     st.session_state["is_generating"] = False
     st.session_state["to_process"] = False
     st.session_state["queued_q"] = ""
     st.session_state["pending_idx"] = None
     render_messages(st.session_state["messages"], messages_ph)
     st.rerun()
+
 
 
     st.session_state["messages"][pending_idx] = {
