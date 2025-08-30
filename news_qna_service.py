@@ -98,7 +98,7 @@ class NewsQnAService:
         return self.embed_model.get_embeddings(inp, output_dimensionality=self.embed_dim)[0].values
 
     # ---------- RAG steps ----------
-    def _extract_text_from_payload(payload: dict) -> str:
+    def _extract_text_from_payload(self, payload: dict) -> str:
         """
         payload["doc"]가 문자열이거나, dict(예: {"content": "...", "text": "...", ...})일 수 있으니 모두 커버
         """
@@ -137,7 +137,7 @@ class NewsQnAService:
         docs: List[Dict[str, Any]] = []
         for h in hits:
             payload = h.payload or {}
-            text = _extract_text_from_payload(payload)
+            text = self._extract_text_from_payload(payload)
     
             # 메타데이터: payload["metadata"] 최우선, 없으면 payload에서 doc 제외
             md = {}
