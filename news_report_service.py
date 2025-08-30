@@ -19,7 +19,8 @@ from qdrant_client.models import (
 )
 from dotenv import load_dotenv
 from datetime import datetime, date, timedelta
-
+# sending mail
+import markdown
 import mailing
 
 load_dotenv()
@@ -458,8 +459,10 @@ class NewsReportService:
         template = template or "{stock} 관련해서 종목의 가격에 중요한 뉴스는?"
         per_stock = self.answer_multi_stocks(stocks, template=template, max_workers=max_workers)
         final = self._reduce_across_stocks(template, per_stock)
-
-        mailing.send_mail("am.woojin@gmail.com", final)
+        mail_final = markdown.markdown(final)
+        #mailing.send_mail("am.woojin@gmail.com", final)
+        #html 테스트
+        mailing.send_mail("fanxy0730@gmail.com", mail_final)
 
         return {
             "base_template": template,
@@ -513,6 +516,7 @@ if __name__ == "__main__":
     print(result["final_report"])
 
 """
+
 
 
 
