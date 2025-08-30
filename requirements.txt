@@ -170,3 +170,4 @@ xlrd==2.0.2
 xxhash==3.5.0
 yarl==1.20.1
 yfinance==0.2.65
+markdown
