@@ -511,7 +511,7 @@ if clicked and final_q and not st.session_state.get("is_generating", False):
 #                 buf.append(chunk)
 #                 st.session_state["messages"][pending_idx]["content"] = "".join(buf)
 #                 render_messages(st.session_state["messages"], messages_ph)
-#                 time.sleep(0.1)  # 프레임 드랍 방지, 체감 타자 효과
+#                 time.sleep(0.3)  # 프레임 드랍 방지, 체감 타자 효과
 
 #             # 3) 스트림 완료 후, 근거 문서 부착(선택)
 #             try:
