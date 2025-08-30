@@ -5,6 +5,8 @@ from vertexai.language_models import TextEmbeddingModel, TextEmbeddingInput
 from vertexai.generative_models import GenerativeModel
 from qdrant_client import QdrantClient
 from google.oauth2 import service_account
+from collections.abc import Generator
+from vertexai.generative_models import Candidate
 import streamlit as st  # Streamlit secrets 사용 시
 
 
