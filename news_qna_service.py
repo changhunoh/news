@@ -173,14 +173,11 @@ class NewsQnAService:
         ctx = "\n\n".join(d["content"] for d in docs)
         prompt = f"""
       당신은 주식시장과 연금에 정통한 전문 애널리스트입니다.  
-      아래 컨텍스트를 근거로 한국어 답변을 작성하세요.  
+      아래 컨텍스트를 근거로 사용자의 질문 의도에 맞는 한국어 답변을 작성하세요.  
       답변을 작성 시 아래 지침을 반드시 지켜주세요.
       
         [작성 지침]  
         1. 답변은 **3단락 이상**으로 구성하세요.  
-           - (1) 현황 요약  
-           - (2) 원인/맥락 분석  
-           - (3) 향후 전망 및 투자자 조언  
         2. **중요 포인트는 굵게**, 핵심 수치는 `코드블록 스타일`로 표시하세요.  
         3. 답변 중간에는 ▸, ✔, ✦ 같은 불릿 아이콘을 활용해 시각적으로 보기 좋게 정리하세요.  
         4. 마지막에 `---` 구분선을 넣고, 근거 기사 한 줄 요약을 첨부하세요.  
@@ -215,12 +212,76 @@ class NewsQnAService:
         except Exception as e:
             return f"답변 생성 중 오류가 발생했습니다: {e}"
 
+    def generate_stream(self, question: str, docs: List[Dict[str, Any]]) -> Generator[str, None, None]:
+        """Gemini 스트리밍 제너레이터: chunk 문자열을 yield"""
+        if not docs:
+            yield "관련된 정보를 찾을 수 없습니다."
+            return
+
+        ctx = "\n\n".join(d["content"] for d in docs)
+        prompt = f"""
+      당신은 주식시장과 연금에 정통한 전문 애널리스트입니다.  
+      아래 컨텍스트를 근거로 한국어 답변을 작성하세요.  
+      답변을 작성 시 아래 지침을 반드시 지켜주세요.
+      
+        [작성 지침]  
+        1. 답변은 **3단락 이상**으로 구성하세요.  
+           - (1) 현황 요약  
+           - (2) 원인/맥락 분석  
+           - (3) 향후 전망 및 투자자 조언  
+        2. **중요 포인트는 굵게**, 핵심 수치는 `코드블록 스타일`로 표시하세요.  
+        3. 답변 중간에는 ▸, ✔, ✦ 같은 불릿 아이콘을 활용해 시각적으로 보기 좋게 정리하세요.  
+        4. 마지막에 `---` 구분선을 넣고, 근거 기사 한 줄 요약을 첨부하세요.  
+        5. 모호하거나 근거 없는 내용은 쓰지 말고 "관련된 정보를 찾을 수 없습니다."라고 답하세요.
+
+        [컨텍스트]
+        {ctx}
+        
+        [질문]
+        {question}
+        """
+
+        try:
+            responses = self.gen_model.generate_content(
+                prompt,
+                stream=True,
+                generation_config={"temperature": 0.2},
+            )
+
+            # 일부 SDK 버전에서 응답이 후보/파츠로 나뉘거나 response.text에 델타가 들어옵니다.
+            for res in responses:
+                # 1) 가장 간단: 델타 텍스트가 있으면 그대로
+                if getattr(res, "text", None):
+                    yield res.text
+                    continue
+
+                # 2) 후보/파츠에서 텍스트 축출
+                chunk = []
+                for cand in (getattr(res, "candidates", None) or []):
+                    if isinstance(cand, Candidate) and getattr(cand, "content", None):
+                        for part in getattr(cand.content, "parts", []) or []:
+                            t = getattr(part, "text", None)
+                            if t:
+                                chunk.append(t)
+                if chunk:
+                    yield "".join(chunk)
+
+        except Exception as e:
+            yield f"\n\n(스트리밍 중 오류가 발생했습니다: {e})"
+
     # ---------- public APIs ----------
     def answer(self, question: str) -> Dict[str, Any]:
         docs = self.retrieve(question)
         docs = self.rerank(question, docs) if self.use_rerank else docs[: self.top_k]
         ans = self.generate(question, docs)
         return {"answer": ans, "source_documents": docs}
+
+    def answer_stream(self, question: str):
+        """retrieve → (옵션) rerank → stream 생성기를 반환"""
+        docs = self.retrieve(question)
+        docs = self.rerank(question, docs) if self.use_rerank else docs[: self.top_k]
+        return self.generate_stream(question, docs)
+    
 
     def retrieve_only(self, question: str, top_k: int | None = None) -> List[Dict[str, Any]]:
         prev_top_k, self.top_k = self.top_k, (top_k or self.top_k)
