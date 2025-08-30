@@ -4,6 +4,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import List, Dict, Any, Optional
 import streamlit as st
+import time  # ← 스트리밍 효과 구현 용도 추가
 
 # ------------------------
 # 기본 설정
@@ -432,27 +433,27 @@ if clicked and final_q and not st.session_state.get("is_generating", False):
     st.session_state["to_process"] = True
     st.session_state["input_key"] = st.session_state.get("input_key", 0) + 1
     st.rerun()
-
-if st.session_state.get("to_process", False):
-    final_q = st.session_state.get("queued_q", "")
-    pending_idx = st.session_state.get("pending_idx")
-    sources, ans, result = [], "관련 정보를 찾을 수 없습니다.", {}
-    try:
-        if svc:
-            result = svc.answer(final_q) or {}
-            ans = (
-                result.get("answer") or result.get("output_text") or
-                result.get("output") or result.get("content") or ""
-            ).strip() or ans
-            sources = (
-                result.get("source_documents") or
-                result.get("sources") or
-                result.get("docs") or []
-            )
-        else:
-            ans = f"데모 응답: '{final_q}'에 대한 분석 결과는 준비 중입니다."
-    except Exception as e:
-        ans = f"오류 발생: {e}"
+# stream 효과 구현 용도 제거
+# if st.session_state.get("to_process", False):
+#     final_q = st.session_state.get("queued_q", "")
+#     pending_idx = st.session_state.get("pending_idx")
+#     sources, ans, result = [], "관련 정보를 찾을 수 없습니다.", {}
+#     try:
+#         if svc:
+#             result = svc.answer(final_q) or {}
+#             ans = (
+#                 result.get("answer") or result.get("output_text") or
+#                 result.get("output") or result.get("content") or ""
+#             ).strip() or ans
+#             sources = (
+#                 result.get("source_documents") or
+#                 result.get("sources") or
+#                 result.get("docs") or []
+#             )
+#         else:
+#             ans = f"데모 응답: '{final_q}'에 대한 분석 결과는 준비 중입니다."
+#     except Exception as e:
+#         ans = f"오류 발생: {e}"
 
     st.session_state["messages"][pending_idx] = {
         "role": "assistant",
