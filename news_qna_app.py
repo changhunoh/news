@@ -482,7 +482,7 @@ if st.session_state.get("to_process", False):
                 # 매 청크마다 렌더링 업데이트
                 render_messages(st.session_state["messages"], messages_ph)
                 # 살짝 양보 (UI 버벅임 방지)
-                time.sleep(0.02)
+                time.sleep(0.1)
 
             # 스트림 종료 후 근거 문서(소스)도 붙여주기
             try:
