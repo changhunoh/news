@@ -417,7 +417,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 #진단 추가
 
-if st.sidebar("🔍 Qdrant 진단"):
+if st.button("🔍 Qdrant 진단"):
     if svc and hasattr(svc, "diagnose"):
         st.json(svc.diagnose())
     else:
