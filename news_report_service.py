@@ -58,8 +58,8 @@ class NewsReportService:
         gen_model_name: str = "gemini-2.5-pro", #최종 리포트 모델
         rag_model_name: str = "gemini-2.5-flash-lite", # RAG 모델
         embed_dim: int = 3072,
-        top_k: int = 1,
-        rerank_top_k: int = 1,
+        top_k: int = 30,
+        rerank_top_k: int = 20,
         use_rerank: bool = False,
     ):
         # ---- GCP & Vertex init (보안 관련 설정) ----
@@ -94,8 +94,8 @@ class NewsReportService:
         self.gen_model_name = gen_model_name or os.getenv("GENAI_MODEL_NAME", "gemini-2.5-pro")
         self.rag_model_name = rag_model_name or os.getenv("RAG_MODEL_NAME",'gemini-2.5-flash-lite')
         self.embed_dim = int(embed_dim or int(os.getenv("EMBED_DIM", "3072")))
-        self.top_k = int(top_k or int(os.getenv("DEFAULT_TOP_K", "1")))
-        self.rerank_top_k = int(rerank_top_k or int(os.getenv("RERANK_TOP_K", "1")))
+        self.top_k = int(top_k or int(os.getenv("DEFAULT_TOP_K", "30")))
+        self.rerank_top_k = int(rerank_top_k or int(os.getenv("RERANK_TOP_K", "20")))
         self.use_rerank = use_rerank
         
         self._dist_mode: Optional[str] = None
@@ -253,7 +253,8 @@ class NewsReportService:
 
     # ----------------- (선택) 리랭크 -----------------
     def rerank(self, question: str, docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        return (docs or [])[: self.top_k]
+        #return (docs or [])[: self.top_k]
+        return (docs or [])[: self.rerank_top_k]
     
     def _safe_settings(self):
         return [
@@ -295,10 +296,11 @@ class NewsReportService:
         #self._ensure_models()
         if not docs:
             return "관련된 정보를 찾을 수 없습니다."
-        def _trunc(s: str, limit=1600):
-            s = s or ""
-            return s if len(s) <= limit else s[:limit] + "..."
-        ctx = "\n\n---\n\n".join(_trunc(d["content"]) for d in docs[:5])
+        #def _trunc(s: str, limit=1600):
+            #s = s or ""
+            #return s if len(s) <= limit else s[:limit] + "..."
+        #ctx = "\n\n---\n\n".join(_trunc(d["content"]) for d in docs[:10])
+        ctx = "\n\n---\n\n".join(d["content"] for d in docs[:10])
 
         prompt = f"""
 당신은 주식시장과 연금에 정통한 전문 애널리스트입니다.
@@ -502,6 +504,7 @@ if __name__ == "__main__":
     print("=" * 80)
     print(">>> 최종 통합 리포트:")
     print(result["final_report"])
+
 
 
 
