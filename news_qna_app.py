@@ -259,6 +259,12 @@ h1 {
 .main {
     background: transparent !important;
 }
+.thinking-text {
+    font-weight: 600;
+    margin-right: 6px;
+    color: #334155;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -322,25 +328,51 @@ def render_messages(msgs, placeholder):
         role = m.get("role","assistant")
         ts   = _escape_html(m.get("ts",""))
         if role=="assistant":
-            if m.get("pending"):
-                html_parts.append(
-                    "<div class='chat-row bot-row'>"
-                    f"{_avatar_html('assistant')}"
-                    "<div><div class='typing-bubble'>"
-                    "<span class='typing-dot'></span>"
-                    "<span class='typing-dot'></span>"
-                    "<span class='typing-dot'></span>"
-                    "</div>"
-                    f"<div class='time'>{ts}</div></div></div>"
-                )
-            else:
-                text=_linkify(_escape_html(m.get("content","")))
-                html_parts.append(
-                    "<div class='chat-row bot-row'>"
-                    f"{_avatar_html('assistant')}"
-                    f"<div><div class='bubble bot'>{text}</div>"
-                    f"<div class='time'>{ts}</div></div></div>"
-                )
+            # 생각 중 텍스트 추가 전
+            # if m.get("pending"):
+            #     html_parts.append(
+            #         "<div class='chat-row bot-row'>"
+            #         f"{_avatar_html('assistant')}"
+            #         "<div><div class='typing-bubble'>"
+            #         "<span class='typing-dot'></span>"
+            #         "<span class='typing-dot'></span>"
+            #         "<span class='typing-dot'></span>"
+            #         "</div>"
+            #         f"<div class='time'>{ts}</div></div></div>"
+            #     )
+            
+            # else:
+            #     text=_linkify(_escape_html(m.get("content","")))
+            #     html_parts.append(
+            #         "<div class='chat-row bot-row'>"
+            #         f"{_avatar_html('assistant')}"
+            #         f"<div><div class='bubble bot'>{text}</div>"
+            #         f"<div class='time'>{ts}</div></div></div>"
+            #     )
+
+            #if role=="assistant":
+            # 생각 중 텍스트 추가
+                if m.get("pending"):
+                    html_parts.append(
+                        "<div class='chat-row bot-row'>"
+                        f"{_avatar_html('assistant')}"
+                        "<div><div class='typing-bubble'>"
+                        "<span class='thinking-text'>생각중</span>"
+                        "<span class='typing-dot'></span>"
+                        "<span class='typing-dot'></span>"
+                        "<span class='typing-dot'></span>"
+                        "</div>"
+                        f"<div class='time'>{ts}</div></div></div>"
+                        )
+                else:
+                    text=_linkify(_escape_html(m.get("content","")))
+                    html_parts.append(
+                        "<div class='chat-row bot-row'>"
+                        f"{_avatar_html('assistant')}"
+                        f"<div><div class='bubble bot'>{text}</div>"
+                        f"<div class='time'>{ts}</div></div></div>"
+                    )
+
         else: # user
             text=_linkify(_escape_html(m.get("content","")))
             html_parts.append(
@@ -456,7 +488,63 @@ if clicked and final_q and not st.session_state.get("is_generating", False):
 #     except Exception as e:
 #         ans = f"오류 발생: {e}"
 
-# 스트리밍 함수 추가
+# 스트리밍 함수 추가 (생각 중 추가 전)
+# if st.session_state.get("to_process", False):
+#     final_q = st.session_state.get("queued_q", "")
+#     pending_idx = st.session_state.get("pending_idx")
+#     sources = []
+
+#     try:
+#         if svc and hasattr(svc, "answer_stream"):
+#             # 1) 타이핑 버블을 실제 스트림 메시지로 전환
+#             st.session_state["messages"][pending_idx]["pending"] = False
+#             st.session_state["messages"][pending_idx]["content"] = ""
+#             st.session_state["messages"][pending_idx]["ts"] = fmt_ts(datetime.now(TZ))
+#             render_messages(st.session_state["messages"], messages_ph)
+
+#             # 2) 백엔드 스트림 소비
+#             stream = svc.answer_stream(final_q)  # ← 핵심: 스트림 제너레이터 받기
+#             buf = []
+#             for chunk in stream:                 # ← 핵심: 제너레이터를 for로 '소비'
+#                 if not isinstance(chunk, str):
+#                     continue
+#                 buf.append(chunk)
+#                 st.session_state["messages"][pending_idx]["content"] = "".join(buf)
+#                 render_messages(st.session_state["messages"], messages_ph)
+#                 time.sleep(0.1)  # 프레임 드랍 방지, 체감 타자 효과
+
+#             # 3) 스트림 완료 후, 근거 문서 부착(선택)
+#             try:
+#                 if hasattr(svc, "retrieve_only"):
+#                     sources = svc.retrieve_only(final_q, top_k=5) or []
+#             except Exception:
+#                 sources = []
+#             st.session_state["messages"][pending_idx]["sources"] = sources
+#             st.session_state["messages"][pending_idx]["ts"] = fmt_ts(datetime.now(TZ))
+
+#         else:
+#             # 스트리밍 미지원/서비스 없음: 폴백
+#             ans = f"데모 응답: '{final_q}'에 대한 분석 결과는 준비 중입니다."
+#             st.session_state["messages"][pending_idx] = {
+#                 "role": "assistant", "content": ans, "sources": [],
+#                 "ts": fmt_ts(datetime.now(TZ))
+#             }
+
+#     except Exception as e:
+#         st.session_state["messages"][pending_idx] = {
+#             "role": "assistant", "content": f"오류 발생: {e}", "sources": [],
+#             "ts": fmt_ts(datetime.now(TZ))
+#         }
+
+#     # 4) 상태 정리 및 최종 리렌더
+#     st.session_state["is_generating"] = False
+#     st.session_state["to_process"] = False
+#     st.session_state["queued_q"] = ""
+#     st.session_state["pending_idx"] = None
+#     render_messages(st.session_state["messages"], messages_ph)
+#     st.rerun()
+
+# 생각 중 추가 + 스트리밍
 if st.session_state.get("to_process", False):
     final_q = st.session_state.get("queued_q", "")
     pending_idx = st.session_state.get("pending_idx")
@@ -464,24 +552,32 @@ if st.session_state.get("to_process", False):
 
     try:
         if svc and hasattr(svc, "answer_stream"):
-            # 1) 타이핑 버블을 실제 스트림 메시지로 전환
-            st.session_state["messages"][pending_idx]["pending"] = False
+            # 1) 먼저 '생각중 …' 볼 수 있도록 pending 그대로 렌더
+            st.session_state["messages"][pending_idx]["pending"] = True
             st.session_state["messages"][pending_idx]["content"] = ""
             st.session_state["messages"][pending_idx]["ts"] = fmt_ts(datetime.now(TZ))
             render_messages(st.session_state["messages"], messages_ph)
 
             # 2) 백엔드 스트림 소비
-            stream = svc.answer_stream(final_q)  # ← 핵심: 스트림 제너레이터 받기
+            stream = svc.answer_stream(final_q)
             buf = []
-            for chunk in stream:                 # ← 핵심: 제너레이터를 for로 '소비'
+            got_first_chunk = False
+
+            for chunk in stream:
                 if not isinstance(chunk, str):
                     continue
                 buf.append(chunk)
+
+                # 첫 청크를 받는 순간 -> pending 해제하고 내용 표시 시작
+                if not got_first_chunk:
+                    got_first_chunk = True
+                    st.session_state["messages"][pending_idx]["pending"] = False
+
                 st.session_state["messages"][pending_idx]["content"] = "".join(buf)
                 render_messages(st.session_state["messages"], messages_ph)
-                time.sleep(0.1)  # 프레임 드랍 방지, 체감 타자 효과
+                time.sleep(0.1)  # 타자 효과
 
-            # 3) 스트림 완료 후, 근거 문서 부착(선택)
+            # 3) 스트림 완료 후 근거 문서(선택)
             try:
                 if hasattr(svc, "retrieve_only"):
                     sources = svc.retrieve_only(final_q, top_k=5) or []
@@ -489,6 +585,14 @@ if st.session_state.get("to_process", False):
                 sources = []
             st.session_state["messages"][pending_idx]["sources"] = sources
             st.session_state["messages"][pending_idx]["ts"] = fmt_ts(datetime.now(TZ))
+
+            # 첫 청크가 하나도 오지 않았다면(에러/빈 응답) → 대체 메시지
+            if not got_first_chunk:
+                st.session_state["messages"][pending_idx]["pending"] = False
+                st.session_state["messages"][pending_idx]["content"] = (
+                    "관련 정보를 찾을 수 없습니다."
+                )
+                render_messages(st.session_state["messages"], messages_ph)
 
         else:
             # 스트리밍 미지원/서비스 없음: 폴백
@@ -504,7 +608,7 @@ if st.session_state.get("to_process", False):
             "ts": fmt_ts(datetime.now(TZ))
         }
 
-    # 4) 상태 정리 및 최종 리렌더
+    # 상태 정리 및 최종 리렌더
     st.session_state["is_generating"] = False
     st.session_state["to_process"] = False
     st.session_state["queued_q"] = ""
