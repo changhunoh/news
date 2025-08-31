@@ -106,9 +106,9 @@ if run_btn:
         st.stop()
 
     # 런타임 설정 반영
-    svc.top_k = int(top_k)
-    svc.use_rerank = bool(use_rerank)
-    svc.rerank_top_k = int(rerank_top_k)
+    #svc.top_k = int(top_k)
+    #svc.use_rerank = bool(use_rerank)
+    #svc.rerank_top_k = int(rerank_top_k)
 
     # (선택) 디버깅: 각 종목의 보유 문서 수
     cols = st.columns(len(stocks))
@@ -171,6 +171,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - {meta_line} • score(raw): `{score}` • mode: `{dist_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
