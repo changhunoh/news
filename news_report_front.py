@@ -122,10 +122,10 @@ if run_btn:
 
     with st.spinner("리포트를 생성하는중..."):
         try:
-            base_template = (template or None)
+            #base_template = (template or None)
             result = svc.answer_5_stocks_and_reduce(
                 stocks=stocks,
-                template=base_template,
+                template=f"{stocks} 관련해서 종목의 가격에 영향을 미치는 중요한 뉴스는?",
                 max_workers=int(max_workers),
             )
         except Exception as e:
@@ -171,6 +171,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - {meta_line} • score(raw): `{score}` • mode: `{dist_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
