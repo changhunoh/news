@@ -81,9 +81,9 @@ st.markdown(
 with st.sidebar:
     st.subheader("실행 설정")
     stocks_text = st.text_input("종목(콤마로 구분)", value="삼성전자,우리금융지주", help="예: 삼성전자,우리금융지주 / 또는 AAPL,NVDA")
-    template = st.text_input("질문 템플릿 (옵션)", value="{stock} 관련해서 종목의 가격에 중요한 뉴스는?")
+    #template = st.text_input("질문 템플릿 (옵션)", value="{stock} 관련해서 종목의 가격에 중요한 뉴스는?")
     #top_k = st.number_input("top_k", min_value=1, max_value=20, value=5, step=1)
-    use_rerank = st.toggle("리랭크 사용 (현재는 top_k 자르기)", value=False)
+    #use_rerank = st.toggle("리랭크 사용 (현재는 top_k 자르기)", value=False)
     #rerank_top_k = st.number_input("rerank_top_k", min_value=1, max_value=50, value=5, step=1)
     #max_workers = st.slider("동시 처리 쓰레드", min_value=1, max_value=10, value=5)
     run_btn = st.button("🚀 실행", type="primary")
@@ -171,6 +171,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - {meta_line} • score(raw): `{score}` • mode: `{dist_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
