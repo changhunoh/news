@@ -170,7 +170,7 @@ st.markdown(
 
 with st.sidebar:
     st.subheader("실행 설정")
-    stocks_text = st.text_input("종목(콤마로 구분)", value="삼성전자,SK하이닉스,LG에너지솔루션", help="예: 삼성전자,우리금융지주 / 또는 AAPL,NVDA")
+    stocks_text = st.text_input("종목(콤마로 구분)", value="우리금융지주,삼성화재,삼성생명,카카오뱅크,메리츠금융지주", help="예: 삼성전자,우리금융지주 / 또는 AAPL,NVDA")
     #template = st.text_input("질문 템플릿 (옵션)", value="{stock} 관련해서 종목의 가격에 중요한 뉴스는?")
     #top_k = st.number_input("top_k", min_value=1, max_value=20, value=5, step=1)
     #use_rerank = st.toggle("리랭크 사용 (현재는 top_k 자르기)", value=False)
@@ -268,6 +268,7 @@ else:
 
     st.divider()
     st.subheader("🔎 종목별 요약보기")
+
 
 
 
