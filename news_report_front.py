@@ -261,32 +261,14 @@ if run_btn:
                     st.markdown(f"- {i}. {link}")
             else:
                 st.write("소스 문서 없음")
-
+#최종리포트 예시 추가
 else:
-    st.subheader("📌 최종 리포트 (예시)")
+    st.subheader("📌 최종 리포트")
     st.markdown(SAMPLE_FINAL_REPORT)
 
     st.divider()
-    st.subheader("🔎 종목별 요약보기 (예시)")
-    for r in SAMPLE_RESULTS:
-        stock = r.get("stock","")
-        with st.expander(f"[{stock}] 요약 보기", expanded=False):
-            st.markdown(r.get("answer",""))
+    st.subheader("🔎 종목별 요약보기")
 
-            src_docs = r.get("source_documents") or []
-            if src_docs:
-                st.markdown("**참고 소스(상위 몇 건)**")
-                for i, d in enumerate(src_docs[:10], start=1):
-                    md = d.get("metadata") or {}
-                    link = _fmt_link(md)
-                    extra = []
-                    if "stock" in md: extra.append(f"stock=`{md.get('stock')}`")
-                    if "doc_id" in md: extra.append(f"doc_id=`{md.get('doc_id')}`")
-                    if "chunk_idx" in md: extra.append(f"chunk=`{md.get('chunk_idx')}`")
-                    meta_line = " • ".join(extra)
-                    st.markdown(f"- {i}. {link}  \n  - {meta_line}")
-            else:
-                st.write("소스 문서 없음")
 
 
 
