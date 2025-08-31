@@ -315,6 +315,28 @@ h1 {
   margin: 0 auto;
   padding: 0 24px 24px;        /* 헤더 padding은 header-wrap이 담당 */
   background: transparent !important;}
+.stForm .stButton > button,
+.stForm button[type="submit"] {
+  border-radius: 50% !important;                   /* 원하면 50%로 동그랗게 */
+  background: linear-gradient(135deg,#3b82f6, #1d4ed8) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 6px 16px rgba(59,130,246,.35) !important;
+  font-weight: 700 !important;
+}
+
+.stForm .stButton > button:hover,
+.stForm button[type="submit"]:hover {
+  background: linear-gradient(135deg,#2563eb, #1e40af) !important;
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 10px 22px rgba(59,130,246,.45) !important;
+}
+
+.stForm .stButton > button:focus,
+.stForm button[type="submit"]:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 4px rgba(59,130,246,.18) !important;
+}
 
 </style>
 """, unsafe_allow_html=True)
