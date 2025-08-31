@@ -143,10 +143,10 @@ if run_btn:
     st.divider()
 
     # 종목별 결과
-    st.subheader("🔎 종목별 부분답 & 소스")
+    st.subheader("🔎 종목별 요약보기")
     for r in result.get("results", []):
         stock = r.get("stock", "")
-        with st.expander(f"[{stock}] 부분답 보기", expanded=False):
+        with st.expander(f"[{stock}] 요약 보기", expanded=False):
             ans = (r.get("answer") or "").strip()
             if ans:
                 st.markdown(ans)
@@ -171,6 +171,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - {meta_line} • score(raw): `{score}` • mode: `{dist_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
