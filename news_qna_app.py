@@ -373,7 +373,40 @@ h1 {
   padding: 0 !important;
   font-size: 20px !important;
 }
+/* 폼 제출 버튼: 모든 버전 커버 */
+.stForm .stFormSubmitButton button,
+.stForm [data-testid="baseButton-secondary"],
+.stForm [data-testid="baseButton-primary"],
+.stForm [data-testid^="baseButton-"] {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 6px 16px rgba(59,130,246,.35) !important;
+  font-weight: 700 !important;
+}
 
+/* 호버/포커스 */
+.stForm .stFormSubmitButton button:hover,
+.stForm [data-testid^="baseButton-"]:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%) !important;
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 10px 22px rgba(59,130,246,.45) !important;
+}
+.stForm .stFormSubmitButton button:focus,
+.stForm [data-testid^="baseButton-"]:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 4px rgba(59,130,246,.18) !important;
+}
+
+/* (원형 액션 버튼 유지) */
+.stForm .stFormSubmitButton button,
+.stForm [data-testid^="baseButton-"] {
+  height: 48px !important;
+  width: 48px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  font-size: 20px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
