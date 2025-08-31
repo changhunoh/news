@@ -478,40 +478,39 @@ st.markdown('</div>', unsafe_allow_html=True)  # .main 닫기
 
 
 
-
-"""
+# 헤더 분리 전
 # ------------------------
 # 메인 UI
 # ------------------------
-st.markdown('<div class="main">', unsafe_allow_html=True)
+# st.markdown('<div class="main">', unsafe_allow_html=True)
 
-# 헤더
-st.title("🧙‍♂️ 우리 연금술사")
+# # 헤더
+# st.title("🧙‍♂️ 우리 연금술사")
 
-# 채팅 영역
-st.markdown('<div class="chat-area">', unsafe_allow_html=True)
-messages_ph = st.empty()
-render_messages(st.session_state["messages"], messages_ph)
-st.markdown('</div>', unsafe_allow_html=True)
+# # 채팅 영역
+# st.markdown('<div class="chat-area">', unsafe_allow_html=True)
+# messages_ph = st.empty()
+# render_messages(st.session_state["messages"], messages_ph)
+# st.markdown('</div>', unsafe_allow_html=True)
 
-# 입력창
-col1, col2 = st.columns([1, 0.15])
+# # 입력창
+# col1, col2 = st.columns([1, 0.15])
 
-with col1:
-    user_q = st.text_input(
-        "질문을 입력하세요...",
-        key=f"user_input_{st.session_state.get('input_key', 0)}",
-        label_visibility="collapsed",
-        placeholder="예) 삼성전자 전망 알려줘"
-    )
+# with col1:
+#     user_q = st.text_input(
+#         "질문을 입력하세요...",
+#         key=f"user_input_{st.session_state.get('input_key', 0)}",
+#         label_visibility="collapsed",
+#         placeholder="예) 삼성전자 전망 알려줘"
+#     )
 
-with col2:
-    clicked = st.button(
-        "➤",
-        key="send_button",
-        use_container_width=True,
-        disabled=st.session_state.get("is_generating", False)
-    )
+# with col2:
+#     clicked = st.button(
+#         "➤",
+#         key="send_button",
+#         use_container_width=True,
+#         disabled=st.session_state.get("is_generating", False)
+#     )
 
 
 # with col1:
@@ -539,8 +538,7 @@ with col2:
 #     stream = service.answer_stream(user_q)   # ← 제너레이터 호출
 #     assistant_box.write_stream(stream)       # ← 스트리밍 출력
 
-st.markdown('</div>', unsafe_allow_html=True)
-"""
+#st.markdown('</div>', unsafe_allow_html=True)
 # ------------------------
 # 메시지 처리
 # ------------------------
