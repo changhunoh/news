@@ -493,6 +493,10 @@ with st.form("ask_form", clear_on_submit=True):
             disabled=st.session_state.get("is_generating", False)
         )
 
+# ↓↓↓ 이 두 줄 반드시 복구 (폼 바로 아래에 위치)
+st.markdown('</div>', unsafe_allow_html=True)  # .chat-wrap 닫기
+st.markdown('</div>', unsafe_allow_html=True)  # .main 닫기
+
 # 헤더 분리 전
 # ------------------------
 # 메인 UI
@@ -557,7 +561,7 @@ with st.form("ask_form", clear_on_submit=True):
 # ------------------------
 # 메시지 처리
 # ------------------------
-current_input_key = f"user_input_{st.session_state.get('input_key', 0)}"
+#current_input_key = f"user_input_{st.session_state.get('input_key', 0)}"
 # final_q = (st.session_state.get(current_input_key, "") or "").strip()
 
 # if clicked and final_q and not st.session_state.get("is_generating", False):
