@@ -100,20 +100,114 @@ class NewsQnAService:
         return self.embed_model.get_embeddings(inp, output_dimensionality=self.embed_dim)[0].values
 
     # ---------- RAG steps ----------
+    
+    # def _extract_text_from_payload(self, payload: dict) -> str:
+    #     """
+    #     payload["doc"]가 문자열이거나, dict(예: {"content": "...", "text": "...", ...})일 수 있으니 모두 커버
+    #     """
+    #     if not isinstance(payload, dict):
+    #         return ""
+    #     doc = payload.get("doc")
+    #     if isinstance(doc, str):
+    #         return doc
+    #     if isinstance(doc, dict):
+    #         # 흔한 텍스트 키들 우선순위
+    #         return doc.get("content") or doc.get("text") or doc.get("page_content") or ""
+    #     return ""
+
     def _extract_text_from_payload(self, payload: dict) -> str:
         """
-        payload["doc"]가 문자열이거나, dict(예: {"content": "...", "text": "...", ...})일 수 있으니 모두 커버
+        (text, title, link) 추출:
+        1) payload["doc"] (str/dict)
+        2) payload["metadata"] (dict)
+        3) payload 상위 키
+        우선순위로 안전하게 가져온다.
         """
         if not isinstance(payload, dict):
-            return ""
+            return "","",""
+        text = ""
+        title = ""
+        link = ""
+        
         doc = payload.get("doc")
+
         if isinstance(doc, str):
             return doc
-        if isinstance(doc, dict):
-            # 흔한 텍스트 키들 우선순위
-            return doc.get("content") or doc.get("text") or doc.get("page_content") or ""
-        return ""
+        elif isinstance(doc, dict):
+            text  = doc.get("text") or doc.get("content") or doc.get("page_content") or ""
+            title = doc.get("title") or title
+            link  = doc.get("link")  or doc.get("url") or link
+
+        # 2) metadata
+        md = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+        if not text:
+            text = md.get("text") or md.get("content") or md.get("page_content") or ""
+        if not title:
+            title = md.get("title") or md.get("headline") or md.get("subject") or ""
+        if not link:
+            link = md.get("link") or md.get("url") or ""
+
+        # 3) payload 상위 보강
+        if not title:
+            title = payload.get("title") or title
+        if not link:
+            link = payload.get("link") or payload.get("url") or link
+        if not text:
+            text = payload.get("text") or payload.get("content") or payload.get("page_content") or text
+
+        return text, title, link
+    # title, link 추가 전
+    # def retrieve(self, question: str) -> List[Dict[str, Any]]:
+    #     qv = self._embed_query(question)
+    #     hits = self.qc.search(
+    #         collection_name=self.collection,
+    #         query_vector=qv,
+    #         limit=self.top_k if not self.use_rerank else self.rerank_top_k,
+    #         with_payload=True,
+    #         with_vectors=False,
+    #     )
     
+    #     # (선택) distance 모드 파악
+    #     dist_mode = getattr(self, "_dist_mode", None)
+    #     if dist_mode is None:
+    #         try:
+    #             info = self.qc.get_collection(self.collection)
+    #             params = getattr(info.config, "params", None) or getattr(info, "config", None)
+    #             vectors = getattr(params, "vectors", None)
+    #             dist_mode = str(getattr(vectors, "distance", "")).lower() if vectors else ""
+    #         except Exception:
+    #             dist_mode = ""
+    #         self._dist_mode = dist_mode
+    
+    #     docs: List[Dict[str, Any]] = []
+    #     for h in hits:
+    #         payload = h.payload or {}
+    #         text = self._extract_text_from_payload(payload)
+    
+    #         # 메타데이터: payload["metadata"] 최우선, 없으면 payload에서 doc 제외
+    #         md = {}
+    #         if isinstance(payload.get("metadata"), dict):
+    #             md = dict(payload["metadata"])
+    #         else:
+    #             md = {k: v for k, v in payload.items() if k not in ("doc", "metadata")}
+    
+    #         raw = getattr(h, "score", None)  # Qdrant는 보통 distance를 score로 반환
+    #         distance = float(raw) if raw is not None else None
+    #         similarity = None
+    #         if distance is not None and "cosine" in dist_mode:
+    #             similarity = distance
+    
+    #         docs.append({
+    #             "id": str(getattr(h, "id", "")),
+    #             "content": text,            # ✅ 이제 doc 기반 본문
+    #             #"metadata": md,             # ✅ metadata 그대로
+    #             "title": title,
+    #             "link": link,
+    #             "score": similarity if similarity is not None else (float(raw) if raw is not None else None),
+    #             "distance": distance,
+    #             "distance_mode": dist_mode,
+    #         })
+    #     return docs
     def retrieve(self, question: str) -> List[Dict[str, Any]]:
         qv = self._embed_query(question)
         hits = self.qc.search(
@@ -123,8 +217,8 @@ class NewsQnAService:
             with_payload=True,
             with_vectors=False,
         )
-    
-        # (선택) distance 모드 파악
+
+        # 거리/스코어 모드 파악
         dist_mode = getattr(self, "_dist_mode", None)
         if dist_mode is None:
             try:
@@ -135,33 +229,44 @@ class NewsQnAService:
             except Exception:
                 dist_mode = ""
             self._dist_mode = dist_mode
-    
+
         docs: List[Dict[str, Any]] = []
         for h in hits:
             payload = h.payload or {}
-            text = self._extract_text_from_payload(payload)
-    
-            # 메타데이터: payload["metadata"] 최우선, 없으면 payload에서 doc 제외
-            md = {}
+
+            # ✅ 여기서 통합 추출
+            text, title, link = self._extract_text_from_payload(payload)
+
+            # metadata 구성
             if isinstance(payload.get("metadata"), dict):
                 md = dict(payload["metadata"])
             else:
                 md = {k: v for k, v in payload.items() if k not in ("doc", "metadata")}
-    
-            raw = getattr(h, "score", None)  # Qdrant는 보통 distance를 score로 반환
-            distance = float(raw) if raw is not None else None
+
+            raw_score = getattr(h, "score", None)
+            score = float(raw_score) if raw_score is not None else None
+
+            # ✅ Qdrant의 score는 "클수록 더 유사"가 되도록 정의됨.
+            #    cosine/dot은 score를 그대로 similarity로 쓰는 게 일반적.
+            #    euclid일 땐 관례상 -distance가 score인 경우가 많아 별도 가공 없이 표기만 하거나 None 처리.
             similarity = None
-            if distance is not None and "cosine" in dist_mode:
-                similarity = distance
-    
+            if score is not None:
+                if "cosine" in dist_mode or "dot" in dist_mode:
+                    similarity = score
+                else:
+                    similarity = None  # 필요하면 -score 등으로 환산 정책 결정
+
             docs.append({
                 "id": str(getattr(h, "id", "")),
-                "content": text,            # ✅ 이제 doc 기반 본문
-                "metadata": md,             # ✅ metadata 그대로
-                "score": similarity if similarity is not None else (float(raw) if raw is not None else None),
-                "distance": distance,
+                "content": text,        # ✅ 이제 빈 값이 아님 (metadata까지 커버)
+                "title": title,
+                "link": link,
+                "metadata": md,
+                "score": similarity if similarity is not None else score,
+                "distance": score,      # 혼동 방지를 원하면 이 필드명은 빼거나 'raw_score'로 변경 권장
                 "distance_mode": dist_mode,
             })
+
         return docs
 
     def rerank(self, question: str, docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -173,7 +278,11 @@ class NewsQnAService:
     def generate(self, question: str, docs: List[Dict[str, Any]]) -> str:
         if not docs:
             return "관련된 정보를 찾을 수 없습니다."
-        ctx = "\n\n".join(d["content"] for d in docs)
+        # ctx = "\n\n".join(d["content"] for d in docs)
+        ctx = "\n\n".join(f"""제목: {d["title"]}
+본문: {d["content"]}
+url: {d["link"]}""" for d in docs)
+        
         prompt = f"""
       당신은 주식시장과 연금에 정통한 전문 애널리스트입니다. 
       당신에게 주식 종목과 관련된 뉴스기사가 제공됩니다. 
@@ -184,9 +293,8 @@ class NewsQnAService:
         1. 답변은 **3단락 이상**으로 구성하세요.  
         2. **중요 포인트는 굵게**, 핵심 수치는 `코드블록 스타일`로 표시하세요.  
         3. 답변 중간에는 ▸, ✔, ✦ 같은 불릿 아이콘을 활용해 시각적으로 보기 좋게 정리하세요.  
-        4. 마지막에 `---` 구분선을 넣고, 근거 기사 한 줄 요약을 첨부하세요.
+        4. 마지막에 `---` 구분선을 넣고, 제목과 url을 첨부해주세요
         5. 답변에 적절한 이모지를 사용해주세요.
-        
         
         [뉴스기사]
         {ctx}
@@ -206,7 +314,10 @@ class NewsQnAService:
             yield "관련된 정보를 찾을 수 없습니다."
             return
 
-        ctx = "\n\n".join(d["content"] for d in docs)
+        #ctx = "\n\n".join(d["content"] for d in docs)
+        ctx = "\n\n".join(f"""제목: {d["title"]}
+본문: {d["content"]}
+url: {d["link"]}""" for d in docs)
         prompt = f"""
       당신은 주식시장과 연금에 정통한 전문 애널리스트입니다.
       당신에게 주식 종목과 관련된 뉴스기사가 제공됩니다. 
@@ -216,7 +327,7 @@ class NewsQnAService:
         1. 답변은 **3단락 이상**으로 구성하세요.  
         2. **중요 포인트는 굵게**, 핵심 수치는 `코드블록 스타일`로 표시하세요.  
         3. 답변 중간에는 ▸, ✔, ✦ 같은 불릿 아이콘을 활용해 시각적으로 보기 좋게 정리하세요.  
-        4. 마지막에 `---` 구분선을 넣고, 근거 기사 한 줄 요약을 첨부하세요.
+        4. 마지막에 `---` 구분선을 넣고, 제목과 url을 첨부해주세요
         5. 답변에 적절한 이모지를 사용하여 시각적으로 보기 좋게 정리하세요.
         6. 답변을 할 때 내용에 맞는 적절한 소제목을 붙여 주세요.
 
@@ -276,7 +387,6 @@ class NewsQnAService:
         finally:
             self.top_k = prev_top_k
 
-"""
 
 if __name__  == "__main__":
     newsqa = NewsQnAService()
@@ -293,5 +403,3 @@ if __name__  == "__main__":
     for chunk in result_stream:
         print(chunk, end="") # end=""를 사용해 줄바꿈 없이 이어붙임
     print() # 마지막에 줄바꿈 추가
-
-"""
