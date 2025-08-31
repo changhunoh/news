@@ -257,12 +257,22 @@ h1 {
     background: linear-gradient(180deg, #e0f7ff 0%, #ffffff 100%);
 }
 .main {
+    max-width: 900px;
+    width: 100%;
+    margin: 0 auto;          /* 가운데 정렬 핵심 */
+    padding: 12px 24px 20px 24px;
     background: transparent !important;
 }
 .thinking-text {
     font-weight: 600;
     margin-right: 6px;
     color: #334155;
+}
+
+/* 채팅창 메시지 영역 */
+.chat-area {
+    max-width: 700px;        /* 채팅창 폭 제한 */
+    margin: 0 auto 20px auto; /* 가로 가운데 + 아래쪽 여백 */
 }
 
 </style>
