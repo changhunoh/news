@@ -359,14 +359,13 @@ url: {d["link"]}""" for d in docs)
 물론 리스크 요인도 존재합니다. 
 스마트폰의 두뇌 역할을 하는 AP(애플리케이션 프로세서)를 퀄컴에 전적으로 의존하게 되면서 **가격 협상력이 떨어져 수익성 확보에 어려움을 겪을 수 있다**는 점은 우려스러운 부분입니다. 
 또한, 애널리스트들은 삼성전자의 주가가 실적과 거의 완벽하게 동행하기 때문에, 만약 기대했던 반도체 부문의 실적 개선이 지연될 경우 언제든 주가가 하락할 수 있다는 점을 항상 유념해야 한다고 조언합니다. ⚠️
-
 ---
 **[근거 기사]**
-- 삼성전자 ‘기회의 순간 5’ [스페셜리포트] (url: https://n.news.naver.com/mnews/article/024/0000098907?sid=101)
-- Chip giants accelerate efforts to develop HBM alternatives (url: https://n.news.naver.com/mnews/article/009/0005506084?sid=104)
-- [PRNewswire] 풀무원, 신속 반응형 공급망 구축을 위해 키넥시스와 파트... (url: https://n.news.naver.com/mnews/article/001/0010073574?sid=104)
-
-        
+📰 제목: 삼성전자 ‘기회의 순간 5’ [스페셜리포트] 
+🔗 기사보기: https://n.news.naver.com/mnews/article/024/0000098907?sid=101
+📰 제목: Chip giants accelerate efforts to develop HBM alternatives 
+🔗 기사보기: https://n.news.naver.com/mnews/article/009/0005506084?sid=104)
+  
 [뉴스기사]
 {ctx}
 
