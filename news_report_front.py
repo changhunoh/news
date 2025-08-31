@@ -156,21 +156,22 @@ if run_btn:
             # 소스 문서
             src_docs = r.get("source_documents") or []
             if src_docs:
-                st.markdown("**참고 소스(상위 몇 건)**")
+                st.markdown("**근거 기사**")
                 for i, d in enumerate(src_docs[:10], start=1):
                     md = d.get("metadata") or {}
-                    score = d.get("score")
+                    #score = d.get("score")
                     dist_mode = d.get("distance_mode") or ""
                     link = _fmt_link(md)
                     # 루트 스키마: doc_id/stock/chunk_idx/… 노출
                     extra = []
-                    if "stock" in md: extra.append(f"stock=`{md.get('stock')}`")
-                    if "doc_id" in md: extra.append(f"doc_id=`{md.get('doc_id')}`")
-                    if "chunk_idx" in md: extra.append(f"chunk=`{md.get('chunk_idx')}`")
+                    #if "stock" in md: extra.append(f"stock=`{md.get('stock')}`")
+                    #if "doc_id" in md: extra.append(f"doc_id=`{md.get('doc_id')}`")
+                    #if "chunk_idx" in md: extra.append(f"chunk=`{md.get('chunk_idx')}`")
                     meta_line = " • ".join(extra)
                     st.markdown(f"- {i}. {link}  \n  - {meta_line} • score(raw): `{score}` • mode: `{dist_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
