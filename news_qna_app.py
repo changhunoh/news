@@ -272,7 +272,7 @@ h1 {
     max-width: 700px;        /* 채팅창 폭 제한 */
     margin: 0 auto 20px auto; /* 가로 가운데 + 아래쪽 여백 */
 }
-# 헤더 분리 추가
+/* 헤더 분리 추가 */
 /* 헤더(제목) 전용 래퍼 */
 .header-wrap {
   width: 100%;
@@ -314,7 +314,7 @@ h1 {
   width: 100%;
   margin: 0 auto;
   padding: 0 24px 24px;        /* 헤더 padding은 header-wrap이 담당 */
-  background: transparent !important;
+  background: transparent !important;}
 
 </style>
 """, unsafe_allow_html=True)
@@ -457,26 +457,41 @@ render_messages(st.session_state["messages"], messages_ph)
 st.markdown('</div>', unsafe_allow_html=True)  # .chat-area 닫기
 
 # 입력창 (중앙 고정은 .chat-wrap이 담당)
-col1, col2 = st.columns([1, 0.15])
-with col1:
-    user_q = st.text_input(
-        "질문을 입력하세요...",
-        key=f"user_input_{st.session_state.get('input_key', 0)}",
-        label_visibility="collapsed",
-        placeholder="예) 삼성전자 전망 알려줘"
-    )
-with col2:
-    clicked = st.button(
-        "➤",
-        key="send_button",
-        use_container_width=True,
-        disabled=st.session_state.get("is_generating", False)
-    )
+# col1, col2 = st.columns([1, 0.15])
+# with col1:
+#     user_q = st.text_input(
+#         "질문을 입력하세요...",
+#         key=f"user_input_{st.session_state.get('input_key', 0)}",
+#         label_visibility="collapsed",
+#         placeholder="예) 삼성전자 전망 알려줘"
+#     )
+# with col2:
+#     clicked = st.button(
+#         "➤",
+#         key="send_button",
+#         use_container_width=True,
+#         disabled=st.session_state.get("is_generating", False)
+#     )
 
-st.markdown('</div>', unsafe_allow_html=True)  # .chat-wrap 닫기
-st.markdown('</div>', unsafe_allow_html=True)  # .main 닫기
+# st.markdown('</div>', unsafe_allow_html=True)  # .chat-wrap 닫기
+# st.markdown('</div>', unsafe_allow_html=True)  # .main 닫기
 
-
+# 입력창 (Enter 전송 가능: st.form 사용)
+with st.form("ask_form", clear_on_submit=True):
+    col1, col2 = st.columns([1, 0.15])
+    with col1:
+        user_q = st.text_input(
+            "질문을 입력하세요...",
+            key="user_input",                   # input_key 불필요
+            label_visibility="collapsed",
+            placeholder="예) 삼성전자 전망 알려줘"
+        )
+    with col2:
+        submitted = st.form_submit_button(
+            "➤",
+            use_container_width=True,
+            disabled=st.session_state.get("is_generating", False)
+        )
 
 # 헤더 분리 전
 # ------------------------
@@ -543,9 +558,24 @@ st.markdown('</div>', unsafe_allow_html=True)  # .main 닫기
 # 메시지 처리
 # ------------------------
 current_input_key = f"user_input_{st.session_state.get('input_key', 0)}"
-final_q = (st.session_state.get(current_input_key, "") or "").strip()
+# final_q = (st.session_state.get(current_input_key, "") or "").strip()
 
-if clicked and final_q and not st.session_state.get("is_generating", False):
+# if clicked and final_q and not st.session_state.get("is_generating", False):
+#     now = fmt_ts(datetime.now(TZ))
+#     st.session_state["messages"].append({"role": "user", "content": final_q, "ts": now})
+#     st.session_state["messages"].append({
+#         "role": "assistant", "content": "", "ts": now, "pending": True
+#     })
+#     st.session_state["pending_idx"] = len(st.session_state["messages"]) - 1
+#     st.session_state["queued_q"] = final_q
+#     st.session_state["is_generating"] = True
+#     st.session_state["to_process"] = True
+#     st.session_state["input_key"] = st.session_state.get("input_key", 0) + 1
+#     st.rerun()
+
+# 메시지 처리
+final_q = (user_q or "").strip()
+if submitted and final_q and not st.session_state.get("is_generating", False):
     now = fmt_ts(datetime.now(TZ))
     st.session_state["messages"].append({"role": "user", "content": final_q, "ts": now})
     st.session_state["messages"].append({
@@ -555,7 +585,6 @@ if clicked and final_q and not st.session_state.get("is_generating", False):
     st.session_state["queued_q"] = final_q
     st.session_state["is_generating"] = True
     st.session_state["to_process"] = True
-    st.session_state["input_key"] = st.session_state.get("input_key", 0) + 1
     st.rerun()
     
 # stream 효과 구현 용도 제거
