@@ -126,7 +126,7 @@ if run_btn:
             result = svc.answer_5_stocks_and_reduce(
                 stocks=stocks,
                 template=f"{stocks} 관련해서 종목의 가격에 영향을 미치는 중요한 뉴스는?",
-                max_workers=int(max_workers),
+                max_workers=int(5),
             )
         except Exception as e:
             st.exception(e)
@@ -171,6 +171,7 @@ if run_btn:
                     st.markdown(f"- {i}. {link}  \n  - {meta_line} • score(raw): `{score}` • mode: `{dist_mode}`")
             else:
                 st.write("소스 문서 없음")
+
 
 
 
