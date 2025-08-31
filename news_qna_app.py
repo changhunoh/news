@@ -245,8 +245,6 @@ h1 {
     margin-bottom: 20px;
 }
 
-
-
 /* 반응형 */
 @media (max-width: 768px) {
     .bubble {
@@ -274,6 +272,49 @@ h1 {
     max-width: 700px;        /* 채팅창 폭 제한 */
     margin: 0 auto 20px auto; /* 가로 가운데 + 아래쪽 여백 */
 }
+# 헤더 분리 추가
+/* 헤더(제목) 전용 래퍼 */
+.header-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;     /* 가로 중앙 */
+  padding: 48px 0 12px;        /* 위여백 넉넉히 */
+}
+
+/* 제목 스타일 (h1 대신 커스텀) */
+.app-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: #1e293b;
+  letter-spacing: -0.02em;
+}
+
+/* 제목과 채팅 사이 분리선(옵션) */
+.section-sep {
+  width: 100%;
+  max-width: 900px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(30,41,59,0) 0%, rgba(148,163,184,.45) 50%, rgba(30,41,59,0) 100%);
+  margin: 12px auto 28px;
+}
+
+/* 채팅 영역 전용 래퍼 */
+.chat-wrap {
+  width: 100%;
+  max-width: 720px;            /* 채팅 폭 고정 */
+  margin: 0 auto;              /* 가로 중앙 */
+}
+
+/* (기존) .main 은 레이아웃용 껍데기만 유지 */
+.main {
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 24px 24px;        /* 헤더 padding은 header-wrap이 담당 */
+  background: transparent !important;
 
 </style>
 """, unsafe_allow_html=True)
@@ -394,8 +435,51 @@ def render_messages(msgs, placeholder):
             )
     placeholder.markdown("\n".join(html_parts), unsafe_allow_html=True)
 
+# --- 헤더(제목) ---
+st.markdown('<div class="header-wrap">', unsafe_allow_html=True)
+st.markdown(
+    '<div class="app-title">🧙‍♂️ <span>우리 연금술사</span></div>',
+    unsafe_allow_html=True
+)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# (옵션) 제목과 채팅 사이 분리선
+st.markdown('<div class="section-sep"></div>', unsafe_allow_html=True)
+
+# --- 메인 래퍼 시작 ---
+st.markdown('<div class="main">', unsafe_allow_html=True)
+
+# --- 채팅 영역 ---
+st.markdown('<div class="chat-wrap">', unsafe_allow_html=True)
+st.markdown('<div class="chat-area">', unsafe_allow_html=True)
+messages_ph = st.empty()
+render_messages(st.session_state["messages"], messages_ph)
+st.markdown('</div>', unsafe_allow_html=True)  # .chat-area 닫기
+
+# 입력창 (중앙 고정은 .chat-wrap이 담당)
+col1, col2 = st.columns([1, 0.15])
+with col1:
+    user_q = st.text_input(
+        "질문을 입력하세요...",
+        key=f"user_input_{st.session_state.get('input_key', 0)}",
+        label_visibility="collapsed",
+        placeholder="예) 삼성전자 전망 알려줘"
+    )
+with col2:
+    clicked = st.button(
+        "➤",
+        key="send_button",
+        use_container_width=True,
+        disabled=st.session_state.get("is_generating", False)
+    )
+
+st.markdown('</div>', unsafe_allow_html=True)  # .chat-wrap 닫기
+st.markdown('</div>', unsafe_allow_html=True)  # .main 닫기
 
 
+
+
+"""
 # ------------------------
 # 메인 UI
 # ------------------------
@@ -456,7 +540,7 @@ with col2:
 #     assistant_box.write_stream(stream)       # ← 스트리밍 출력
 
 st.markdown('</div>', unsafe_allow_html=True)
-
+"""
 # ------------------------
 # 메시지 처리
 # ------------------------
