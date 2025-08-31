@@ -338,6 +338,42 @@ h1 {
   box-shadow: 0 0 0 4px rgba(59,130,246,.18) !important;
 }
 
+/* 폼 제출 버튼을 파란색 채움으로 (Streamlit 버전별 모두 커버) */
+.stForm .stFormSubmitButton > button,
+.stForm [data-testid="baseButton-secondary"],
+.stForm [data-testid="baseButton-primary"] {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 6px 16px rgba(59,130,246,.35) !important;
+  font-weight: 700 !important;
+}
+
+/* 호버/포커스 상태 */
+.stForm .stFormSubmitButton > button:hover,
+.stForm [data-testid="baseButton-secondary"]:hover,
+.stForm [data-testid="baseButton-primary"]:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%) !important;
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 10px 22px rgba(59,130,246,.45) !important;
+}
+.stForm .stFormSubmitButton > button:focus,
+.stForm [data-testid="baseButton-secondary"]:focus,
+.stForm [data-testid="baseButton-primary"]:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 4px rgba(59,130,246,.18) !important;
+}
+
+/* (선택) 동그란 액션버튼 스타일을 원하면 아래도 추가 */
+.stForm .stFormSubmitButton > button,
+.stForm [data-testid^="baseButton"] {
+  height: 48px !important;
+  width: 48px !important;
+  border-radius: 50% !important;   /* 원형 */
+  padding: 0 !important;
+  font-size: 20px !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
