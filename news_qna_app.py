@@ -534,7 +534,6 @@ def render_messages(msgs, placeholder):
 
 # --- 헤더(제목) ---
 st.markdown('<div class="header-wrap">', unsafe_allow_html=True)
-st.markdown('<div class="app-subtitle-top">우리 연금술사</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="app-title">🔮 <span>연금술사의 수정구</span></div>',
     unsafe_allow_html=True
