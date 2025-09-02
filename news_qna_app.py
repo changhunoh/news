@@ -407,6 +407,12 @@ h1 {
   padding: 0 !important;
   font-size: 20px !important;
 }
+.app-subtitle {
+        font-size: 18px;   /* 제목보다 작은 글씨 */
+        font-weight: normal;
+        color: #666666;    /* 회색 톤, 필요하면 바꾸기 */
+        margin-top: -8px;  /* 제목과 간격 줄이기 */
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -529,6 +535,7 @@ def render_messages(msgs, placeholder):
 # --- 헤더(제목) ---
 st.markdown('<div class="header-wrap">', unsafe_allow_html=True)
 st.markdown(
+    '<div class="app-subtitle">우리 연금술사</div>',
     '<div class="app-title">🔮 <span>연금술사의 수정구</span></div>',
     unsafe_allow_html=True
 )
