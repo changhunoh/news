@@ -5,7 +5,7 @@ import streamlit as st
 
 from news_report_service import NewsReportService
 
-st.set_page_config(page_title="우리 연금술사 연금리포트", page_icon="📰", layout="centered")
+st.set_page_config(page_title="연금술사의 비밀서재📘", page_icon="📰", layout="centered")
 
 SAMPLE_FINAL_REPORT =  """
 ### 금융 섹터 주요 종목 종합 분석 리포트
@@ -268,6 +268,7 @@ else:
 
     st.divider()
     st.subheader("🔎 종목별 요약보기")
+
 
 
 
