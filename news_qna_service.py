@@ -157,7 +157,6 @@ class NewsQnAService:
             link = payload.get("link") or payload.get("url") or link
         if not text:
             text = payload.get("text") or payload.get("content") or payload.get("page_content") or text
-
         return text, title, link
     # title, link 추가 전
     # def retrieve(self, question: str) -> List[Dict[str, Any]]:
@@ -318,7 +317,7 @@ url: {d["link"]}""" for d in docs)
         if not docs:
             yield "관련된 정보를 찾을 수 없습니다."
             return
-
+            
         #ctx = "\n\n".join(d["content"] for d in docs)
         ctx = "\n\n".join(f"""제목: {d["title"]}
 본문: {d["content"]}
@@ -333,7 +332,7 @@ url: {d["link"]}""" for d in docs)
         1. 답변은 **3단락 이상**으로 구성하세요.  
         2. **중요 포인트는 굵게**, 핵심 수치는 `코드블록 스타일`로 표시하세요.  
         3. 답변 중간에는 ▸, ✔, ✦ 같은 불릿 아이콘을 활용해 시각적으로 보기 좋게 정리하세요.  
-        4. 마지막에 `---` 구분선을 넣고, 답변을 생성하는데 활용한 ctx의 제목을 첨부해주세요.
+        4. 마지막에 `---` 구분선을 넣고, 답변을 생성하는데 활용한 뉴스기사의 제목과 url, 점수를 첨부해주세요.
         5. 답변에 적절한 이모지를 사용하여 시각적으로 보기 좋게 정리하세요.
         6. 답변을 할 때 내용에 맞는 적절한 소제목을 붙여 주세요.
         
