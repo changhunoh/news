@@ -257,7 +257,7 @@ class NewsQnAService:
                     # 1-score로 전환
                     similarity = 1-score
                 else:
-                    similarity = None  # 필요하면 -score 등으로 환산 정책 결정
+                    similarity = 1-score  # 필요하면 -score 등으로 환산 정책 결정
 
             docs.append({
                 "id": str(getattr(h, "id", "")),
