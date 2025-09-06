@@ -257,7 +257,7 @@ class NewsQnAService:
                     # 1-score로 전환
                     similarity = 1-score
                 else:
-                    similarity = 1-score  # 필요하면 -score 등으로 환산 정책 결정
+                    similarity = None # 필요하면 -score 등으로 환산 정책 결정
 
             docs.append({
                 "id": str(getattr(h, "id", "")),
@@ -269,6 +269,13 @@ class NewsQnAService:
                 "distance": score,      # 혼동 방지를 원하면 이 필드명은 빼거나 'raw_score'로 변경 권장
                 "distance_mode": dist_mode,
             })
+            
+            # 점수 sorting 추가
+            docs = sorted(
+            docs,
+            key=lambda d: d["similarity"] if d["similarity"] is not None else -1,
+            reverse=True
+        )
 
         return docs
 
