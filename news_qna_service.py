@@ -9,6 +9,7 @@ from collections.abc import Generator
 from vertexai.generative_models import Candidate
 import streamlit as st  # Streamlit secrets 사용 시
 from dotenv import load_dotenv
+from datetime import datetime, date, timedelta
 
 load_dotenv()
 
@@ -114,7 +115,9 @@ class NewsQnAService:
     #         # 흔한 텍스트 키들 우선순위
     #         return doc.get("content") or doc.get("text") or doc.get("page_content") or ""
     #     return ""
-
+    
+    today = datetime.now().strftime("%Y-%m-%d")
+    
     def _extract_text_from_payload(self, payload: dict) -> str:
         """
         (text, title, link) 추출:
@@ -288,6 +291,7 @@ url: {d["link"]}""" for d in docs)
       당신은 주식시장과 연금에 정통한 전문 애널리스트입니다. 
       당신에게 주식 종목과 관련된 뉴스기사가 제공됩니다. 
       아래 뉴스기사를 근거로 사용자의 질문 의도에 맞는 한국어 답변을 충실하게 작성하세요.
+      오늘이 {self.today}라는 점을 인지하고 시의적절한 정보를 제공해주세요.
       답변을 작성 시 아래 지침을 반드시 지켜주세요.
       
         [작성 지침]  
