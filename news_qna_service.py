@@ -273,7 +273,7 @@ class NewsQnAService:
             # 점수 sorting 추가
             docs = sorted(
             docs,
-            key=lambda d: d["similarity"] if d["similarity"] is not None else -1,
+            key=lambda d: d["score"] if d["score"] is not None else -1,
             reverse=True
         )
 
