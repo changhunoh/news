@@ -252,7 +252,8 @@ class NewsQnAService:
             similarity = None
             if score is not None:
                 if "cosine" in dist_mode or "dot" in dist_mode:
-                    similarity = score
+                    # 1-score로 전환
+                    similarity = 1-score
                 else:
                     similarity = None  # 필요하면 -score 등으로 환산 정책 결정
 
