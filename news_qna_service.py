@@ -343,7 +343,6 @@ url: {d["link"]}""" for d in docs)
         4. 마지막에 `---` 구분선을 넣고, 답변을 생성하는데 활용한 뉴스기사의 제목과 url, 점수를 첨부해주세요.
         5. 답변에 적절한 이모지를 사용하여 시각적으로 보기 좋게 정리하세요.
         6. 답변을 할 때 내용에 맞는 적절한 소제목을 붙여 주세요.
-        7. 기사에 포함되지 않은 내용은 추측하여 답변하지 않습니다.
         
         아래는 당신이 수행해야할 업무의 생성 예시입니다.
 
@@ -389,7 +388,7 @@ url: {d["link"]}""" for d in docs)
             responses = self.gen_model.generate_content(
                 prompt,
                 stream=True,
-                generation_config={"temperature": 0.2},
+                generation_config={"temperature": 0.0},
             )
 
             # 일부 SDK 버전에서 응답이 후보/파츠로 나뉘거나 response.text에 델타가 들어옵니다.
